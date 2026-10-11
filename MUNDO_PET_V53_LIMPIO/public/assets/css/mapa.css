@@ -91,3 +91,51 @@
   .dz-search button span { display: none; }
   .dza-zone { grid-template-columns: 14px minmax(0, 1fr) 70px 70px 30px; }
 }
+
+/* Recojo en tienda: dónde queda cada local */
+.pk-box .dz-map { height: 240px; }
+.pk-places { display: grid; }
+.pk-place { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line, #e2e8f0); cursor: pointer; }
+.pk-place:hover { background: #f8fafc; }
+.pk-ico { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: #dcfce7; color: #15803d; font-size: 19px; }
+.pk-place b { display: block; font-size: 14px; color: #0f172a; }
+.pk-place div span { display: block; font-size: 12.5px; color: #64748b; margin-top: 2px; }
+.pk-place a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d; font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.pk-place a:hover { background: #dcfce7; }
+@media (max-width: 520px) { .pk-place { grid-template-columns: auto minmax(0, 1fr); } .pk-place a { grid-column: 1 / -1; justify-content: center; } }
+
+/* ── Mapa en vivo del reparto ───────────────────────────────────────── */
+.lv { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: stretch; }
+.lv-map-card { border: 1px solid var(--card-border, #e2e8f0); border-radius: 16px; overflow: hidden; background: var(--card-bg, #fff); }
+.lv-map { height: 560px; width: 100%; background: #e8eef3; }
+.lv-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 14px; font-size: 12px; color: var(--texto-muted, #64748b); border-top: 1px solid var(--card-border, #e2e8f0); }
+.lv-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lv-legend i, .lv-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; flex: none; }
+.lv-updated { margin-left: auto; font-variant-numeric: tabular-nums; }
+.lv-side { border: 1px solid var(--card-border, #e2e8f0); border-radius: 16px; background: var(--card-bg, #fff); display: flex; flex-direction: column; min-height: 0; max-height: 605px; }
+.lv-side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); }
+.lv-side-head h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--texto-fuerte, #0f172a); }
+.lv-side-head small { font-size: 12px; color: var(--texto-muted, #64748b); }
+.lv-list { overflow-y: auto; padding: 6px; display: grid; gap: 2px; align-content: start; }
+.lv-person { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 11px; align-items: center; padding: 10px; border-radius: 12px; cursor: pointer; transition: background .15s; }
+.lv-person:hover { background: var(--tabla-hover, #f8fafc); }
+.lv-person.active { background: color-mix(in srgb, #2563eb 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 35%, transparent); }
+.lv-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; background: var(--pin); }
+.lv-person-main b { display: block; font-size: 13.5px; color: var(--texto-fuerte, #0f172a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-person-main span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-muted, #64748b); margin-top: 2px; }
+.lv-route { color: #1d4ed8 !important; font-weight: 600; }
+.lv-route.muted { color: var(--texto-muted, #64748b) !important; font-weight: 400; }
+.lv-person-actions { display: flex; gap: 4px; }
+.lv-person-actions a { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: var(--texto-muted, #64748b); border: 1px solid var(--card-border, #e2e8f0); font-size: 16px; text-decoration: none; }
+.lv-person-actions a:hover { color: #16a34a; border-color: #86efac; }
+.lv-empty { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 44px 22px; color: var(--texto-muted, #64748b); font-size: 13px; }
+.lv-empty i { font-size: 34px; opacity: .55; }
+.lv-empty b { color: var(--texto-fuerte, #0f172a); font-size: 14px; }
+.lv-pin-wrap { background: none; border: 0; }
+.lv-pin { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--pin); color: #fff; font: 700 14px/1 system-ui, sans-serif; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(15, 23, 42, .35); position: relative; }
+.lv-pin.live::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--pin); animation: lv-pulse 1.8s ease-out infinite; }
+.lv-pin.sel { box-shadow: 0 0 0 4px rgba(37, 99, 235, .45), 0 4px 12px rgba(15, 23, 42, .35); }
+.lv-pin-name { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; font: 600 11px/1 system-ui, sans-serif; padding: 4px 7px; border-radius: 6px; white-space: nowrap; }
+@keyframes lv-pulse { from { transform: scale(1); opacity: .8; } to { transform: scale(1.7); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lv-pin.live::after { animation: none; } }
+@media (max-width: 1100px) { .lv { grid-template-columns: minmax(0, 1fr); } .lv-map { height: 420px; } .lv-side { max-height: 380px; } }

@@ -3,6 +3,8 @@ const { wrap } = require('../helpers/response');
 const CajaModel = require('../models/CajaModel');
 const { hasPermission } = require('../middleware/permisos');
 const { cerrarCajasVencidas } = require('../services/CajaAutoCloseService');
+const { buildCashReportPdf } = require('../helpers/cajaPdf');
+const { getDB } = require('../config/database');
 
 function peruNowSQL() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -345,6 +347,38 @@ const CajaController = {
     );
     sesion.codigo = sesion.caja_fisica_codigo || ('CAJA-' + String(sesion.numero_caja || sesion.id).padStart(5, '0'));
     res.json({ ok: true, sesion, totales, movimientos, metodos, arqueo });
+  }),
+
+  // Informe del turno en PDF: arqueo, medios de pago, ventas y movimientos.
+  informe: wrap(async (req, res) => {
+    const u = req.session.usuario;
+    const sesion = await CajaModel.getById(+req.params.id);
+    if (!sesion) return res.status(404).json({ ok: false, msg: 'Sesión no encontrada.' });
+    const puedeSupervisar = await hasPermission(req, 'caja.supervisar');
+    if (!puedeVerSesion(u, sesion, puedeSupervisar)) return res.status(403).json({ ok: false, msg: 'No tienes acceso a esta sesión.' });
+    const db = getDB();
+    const [totales, movimientos, metodos, [ventas], [cfgRows], [[conciliador]]] = await Promise.all([
+      CajaModel.totales(sesion.id), CajaModel.getMovimientos(sesion.id), CajaModel.paymentBreakdown(sesion.id),
+      db.query(`SELECT v.numero, v.total, v.metodo_pago, v.estado_venta, DATE_FORMAT(MIN(cm.created_at),'%H:%i') hora,
+          COALESCE(NULLIF(c.razon_social,''), NULLIF(c.nombre,''), NULLIF(v.cliente_web_nombre,''), '') cliente
+        FROM caja_movimientos cm JOIN ventas v ON v.id=cm.venta_id LEFT JOIN clientes c ON c.id=v.cliente_id
+        WHERE cm.sesion_id=? AND cm.tipo='ingreso' GROUP BY v.id ORDER BY MIN(cm.id)`, [sesion.id]),
+      db.query("SELECT clave,valor FROM configuracion WHERE clave IN ('empresa_nombre','empresa_ruc')"),
+      db.query('SELECT nombre FROM usuarios WHERE id=?', [sesion.conciliada_por || 0])
+    ]);
+    const cfg = Object.fromEntries(cfgRows.map(r => [r.clave, r.valor]));
+    sesion.codigo = sesion.caja_fisica_codigo || ('CAJA-' + String(sesion.numero_caja || sesion.id).padStart(5, '0'));
+    sesion.conciliador_nombre = conciliador?.nombre || '';
+    const cerrada = ['cerrada', 'conciliada'].includes(sesion.estado);
+    const pdf = await buildCashReportPdf({
+      empresa: { nombre: cfg.empresa_nombre || 'Distribuciones MAOZ E.I.R.L.', ruc: cfg.empresa_ruc || '' },
+      sesion, arqueo: calcularArqueo(sesion, totales, cerrada ? sesion.monto_final : null),
+      metodos, ventas, movimientos: [...movimientos].reverse(),
+      generado: new Intl.DateTimeFormat('es-PE', { timeZone:'America/Lima', dateStyle:'long', timeStyle:'short' }).format(new Date()),
+      generadoPor: u.nombre
+    });
+    res.set({ 'Content-Type':'application/pdf', 'Content-Disposition':`inline; filename="Cierre_${String(sesion.codigo).replace(/[^\w-]+/g,'_')}_${sesion.id}.pdf"`, 'Cache-Control':'no-store' });
+    res.send(pdf);
   }),
 
   conciliar: wrap(async (req, res) => {

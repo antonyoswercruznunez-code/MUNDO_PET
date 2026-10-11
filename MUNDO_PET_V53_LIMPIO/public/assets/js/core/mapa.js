@@ -64,7 +64,7 @@
 
   // Dibuja los anillos de cada zona alrededor de sus puntos de despacho.
   // Devuelve el grupo para poder quitarlo y redibujar.
-  function drawZones(L, map, { origins = [], zones = [], fit = true, interactive = false } = {}) {
+  function drawZones(L, map, { origins = [], zones = [], fit = true, interactive = false, showOrigin = true } = {}) {
     const group = L.layerGroup().addTo(map);
     const points = origins.filter(validPoint);
     const ordered = [...zones].sort((a, b) => Number(b.km_hasta) - Number(a.km_hasta));   // del mayor al menor
@@ -77,7 +77,7 @@
           fillColor: zoneColor(index), fillOpacity: .09, interactive
         }).addTo(group);
       });
-      L.marker([Number(origin.lat), Number(origin.lng)], { icon: pin(L, { color: '#0f172a', icon: 'ti-building-store', label: origin.nombre || '' }), interactive: false, keyboard: false }).addTo(group);
+      if (showOrigin) L.marker([Number(origin.lat), Number(origin.lng)], { icon: pin(L, { color: '#0f172a', icon: 'ti-building-store', label: origin.nombre || '' }), interactive: false, keyboard: false }).addTo(group);
     });
     if (fit && points.length) {
       const reach = ordered.length ? Number(ordered[0].km_hasta) : 2;

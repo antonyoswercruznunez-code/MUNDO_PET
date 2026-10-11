@@ -1958,5 +1958,18 @@ CREATE TABLE IF NOT EXISTS `delivery_zonas` (
 INSERT INTO `delivery_zonas` (`nombre`,`km_hasta`,`costo`) VALUES
 ('Zona cercana',3,5),('Zona media',6,8),('Zona lejana',10,12);
 
+CREATE TABLE IF NOT EXISTS usuario_ubicaciones (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  sucursal_id INT NULL,
+  lat DECIMAL(10,7) NOT NULL,
+  lng DECIMAL(10,7) NOT NULL,
+  precision_m INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ubicacion_usuario_fecha (usuario_id,created_at),
+  KEY idx_ubicacion_fecha (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;

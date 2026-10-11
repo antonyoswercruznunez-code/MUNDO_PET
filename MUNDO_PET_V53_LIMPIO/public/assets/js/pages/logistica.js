@@ -26,7 +26,17 @@ window.init_logistica = async function initLogistica() {
   function switchTab(name) {
     document.querySelectorAll('[data-lg-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.lgTab === name));
     document.querySelectorAll('.lg-panel').forEach(panel => panel.hidden = panel.id !== `lg-tab-${name}`);
+    if (name === 'mapa') openLiveMap();
   }
+
+  // El mapa en vivo se crea la primera vez que se abre su pestaña.
+  let liveMap = null;
+  async function openLiveMap() {
+    if (liveMap) return liveMap.refresh?.();
+    liveMap = {};
+    liveMap = await MPLiveMap.mount(document.getElementById('lg-live'));
+  }
+  if (canManage) document.getElementById('lg-tab-btn-mapa').hidden = false;
 
   async function loadBase() {
     const [sr, rr, vr] = await Promise.all([Http.get('/sucursales'),Http.get('/logistica/repartidores'),Http.get('/logistica/vehiculos')]);

@@ -163,6 +163,7 @@ const GRUPOS = [
       { bdSlug: 'cotizaciones',     navSlug: 'cotizaciones',   icono: 'ti-file-text',      nombre: 'Cotizaciones'       },
       { bdSlug: 'verificacion-pagos', navSlug: 'pagos',        icono: 'ti-credit-card',    nombre: 'Verificación Pagos' },
       { bdSlug: 'comprobantes',     navSlug: 'comprobantes',   icono: 'ti-receipt',        nombre: 'Comprobantes'       },
+      { bdSlug: 'comprobantes',     navSlug: 'notas-credito',  icono: 'ti-receipt-refund', nombre: 'Notas de crédito'   },
     ]
   },
   {
@@ -288,6 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('topbar-avatar').textContent = (usuario.nombre || 'A')[0].toUpperCase();
   document.getElementById('topbar-nombre').textContent = usuario.nombre;
+  window.MPTracking?.init();
   document.getElementById('topbar-perfil').textContent = usuario.perfil_nombre;
 
   try {
@@ -330,6 +332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     'cotizaciones':   () => cargarModulo('/assets/js/pages/cotizaciones.js',   'init_cotizaciones'),
     'pagos':          () => cargarModulo('/assets/js/pages/pagos.js',          'init_pagos'),
     'comprobantes':   () => cargarModulo('/assets/js/pages/comprobantes.js',   'init_comprobantes'),
+    'notas-credito':  () => cargarModulo('/assets/js/pages/notas-credito.js',  'init_notas_credito'),
     'apertura-caja': () => cargarModulo('/assets/js/pages/apertura-caja.js',  'init_apertura_caja'),
     'cajas':          () => cargarModulo('/assets/js/pages/cajas.js',          'init_cajas'),
     'tienda':         () => cargarModulo('/assets/js/pages/tienda.js',         'init_tienda'),

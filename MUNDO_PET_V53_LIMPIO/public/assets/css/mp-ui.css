@@ -460,3 +460,19 @@ body .rep-table tbody tr { transition: background .15s; }
 body .rep-table tbody tr:hover { background: color-mix(in srgb, var(--primary, #16a34a) 5%, transparent); }
 body .rep-btn-export { border-radius: 9px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { body .rep-kpi, body .rep-card { animation: none; } }
+
+/* ── Notas de crédito ───────────────────────────────────────────────── */
+.nc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 18px; }
+.nc-table td, .nc-table th { padding-left: 12px; padding-right: 12px; }
+.nc-actions { display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap; }
+.nc-actions .nc-wa { color: #16a34a; border-color: #86efac; }
+
+/* ── Compartir ubicación (barra superior) ───────────────────────────── */
+#btn-ubicacion { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--texto); font: 600 13px/1 inherit; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+#btn-ubicacion i { font-size: 17px; }
+#btn-ubicacion:hover { border-color: var(--mpc-accent); color: var(--mpc-accent); }
+#btn-ubicacion[data-state="on"] { background: #dcfce7; border-color: #86efac; color: #166534; }
+#btn-ubicacion[data-state="on"] i { animation: mp-blink 1.6s ease-in-out infinite; }
+#btn-ubicacion[data-state="error"] { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+@keyframes mp-blink { 50% { opacity: .35; } }
+@media (max-width: 900px) { #btn-ubicacion span { display: none; } #btn-ubicacion { padding: 0 10px; } }

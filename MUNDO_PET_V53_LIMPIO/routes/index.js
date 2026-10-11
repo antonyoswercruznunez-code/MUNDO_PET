@@ -27,6 +27,8 @@ const Comprobante = require('../controllers/ComprobanteController');
 const Recojo = require('../controllers/RecojoController');
 const Temporada = require('../controllers/TemporadaController');
 const Logistica = require('../controllers/LogisticaController');
+const NotaCredito = require('../controllers/NotaCreditoController');
+const Ubicacion = require('../controllers/UbicacionController');
 
 const loginLimiter = rateLimit({ windowMs: 15*60*1000, limit: 12, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos. Espera unos minutos.'} });
 const resetLimiter = rateLimit({ windowMs: 15*60*1000, limit: 6, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiadas solicitudes. Espera unos minutos.'} });
@@ -127,6 +129,8 @@ router.post('/ventas/:id/reintentar-envio', auth, requirePermission('ventas.emit
 router.post('/ventas/:id/enviar-correo', auth, requirePermission('ventas.emitir'), Venta.enviarCorreo);
 router.get('/ventas/:id/pdf', auth, requirePermission('ventas.ver'), Pdf.ventaPDF);
 router.get('/comprobantes', auth, requirePermission('comprobantes.ver'), Comprobante.list);
+router.get('/notas-credito', auth, requireAny('comprobantes.ver','ventas.ver'), NotaCredito.list);
+router.post('/notas-credito/:id/enviar-correo', auth, requirePermission('ventas.emitir'), NotaCredito.enviarCorreo);
 
 // Pedidos y pagos web
 router.get('/pedidos-web', auth, requirePermission('pedidos_web.ver'), PedidoWeb.list);
@@ -204,6 +208,9 @@ router.post('/logistica/rutas/:id/pedidos/:detalleId/evidencias', auth, requireP
 router.get('/logistica/evidencias/:evidenciaId', auth, requirePermission('logistica.ver'), Logistica.verEvidencia);
 router.delete('/logistica/evidencias/:evidenciaId', auth, requirePermission('logistica.gestionar'), Logistica.retirarEvidencia);
 router.get('/logistica/reporte', auth, requirePermission('reportes.ver'), Logistica.reporte);
+router.post('/logistica/ubicacion', auth, requirePermission('logistica.operar'), Ubicacion.registrar);
+router.get('/logistica/ubicaciones', auth, requirePermission('logistica.gestionar'), Ubicacion.enVivo);
+router.get('/logistica/ubicaciones/:usuarioId/recorrido', auth, requirePermission('logistica.gestionar'), Ubicacion.recorrido);
 
 // Cotizaciones
 router.get('/cotizaciones', auth, requirePermission('cotizaciones.ver'), Cotizacion.list);
@@ -231,6 +238,7 @@ router.post('/caja/abrir', auth, requirePermission('caja.operar'), Caja.abrir);
 router.post('/caja/movimiento', auth, requirePermission('caja.operar'), Caja.movimiento);
 router.post('/caja/cerrar', auth, requirePermission('caja.operar'), Caja.cerrar);
 router.patch('/caja/:id/conciliar', auth, requirePermission('caja.supervisar'), Caja.conciliar);
+router.get('/caja/:id/informe', auth, requirePermission('caja.ver'), Caja.informe);
 router.get('/caja/:id', auth, requirePermission('caja.ver'), Caja.getOne);
 
 // Reportes

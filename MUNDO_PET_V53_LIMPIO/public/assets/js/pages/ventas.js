@@ -1885,8 +1885,9 @@ ${venta.observacion ? `<div style="border:1px solid #ddd;border-radius:6px;paddi
           ${fila(nc.xml,        'ti-file-code',     'var(--info)',    'XML firmado de la nota', 'Documento electrónico oficial')}
           ${fila(nc.cdr,        'ti-certificate',   'var(--success)', 'CDR de la nota',         'Constancia de SUNAT')}
         </div>
-        <div style="font-size:11px;color:var(--texto-muted);margin-top:14px;text-align:center">
-          ${res.numero || 'El comprobante original'} fue aceptado por SUNAT y luego anulado con esta nota de crédito.
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+          <button class="btn btn-outline" onclick="MPNotaCredito.correoPorNumero('${nc.numero}')"><i class="ti ti-mail"></i> Enviar por correo</button>
+          <button class="btn btn-outline" style="color:#16a34a;border-color:#86efac" onclick="MPNotaCredito.whatsappPorNumero('${nc.numero}')"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>
         </div>`;
       document.getElementById('modal-emitir').classList.add('open');
       return;

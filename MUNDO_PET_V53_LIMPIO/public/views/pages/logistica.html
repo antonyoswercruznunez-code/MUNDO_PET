@@ -23,6 +23,7 @@
 <div class="lg-tabs" role="tablist">
   <button class="active" data-lg-tab="pedidos"><i class="ti ti-package"></i> Pedidos delivery <span id="lg-ready-count" class="lg-tab-count">0</span></button>
   <button data-lg-tab="rutas"><i class="ti ti-route"></i> Rutas</button>
+  <button data-lg-tab="mapa" id="lg-tab-btn-mapa" hidden><i class="ti ti-map-2"></i> Mapa en vivo</button>
   <button data-lg-tab="resumen"><i class="ti ti-chart-bar"></i> Resumen</button>
   <button data-lg-tab="repartidores"><i class="ti ti-users"></i> Repartidores</button>
   <button data-lg-tab="vehiculos"><i class="ti ti-truck"></i> Camiones</button>
@@ -64,6 +65,8 @@
   </div>
   <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Ruta</th><th>Fecha</th><th>Repartidor</th><th>Camión</th><th>Paradas</th><th>Progreso</th><th>Estado</th><th></th></tr></thead><tbody id="lg-rutas-body"></tbody></table></div></div>
 </section>
+
+<section id="lg-tab-mapa" class="lg-panel" hidden><div id="lg-live"></div></section>
 
 <section id="lg-tab-resumen" class="lg-panel" hidden>
   <div id="lg-kpis" class="stats-grid"></div>

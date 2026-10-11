@@ -483,6 +483,9 @@ window.init_cajas = async function () {
             <button class="btn btn-outline btn-xs" onclick="verDetalleCaja(${s.id})" title="Ver detalles">
               <i class="ti ti-eye"></i>
             </button>
+            <a class="btn btn-outline btn-xs" href="/api/caja/${s.id}/informe" target="_blank" rel="noopener" title="Informe de cierre en PDF">
+              <i class="ti ti-file-type-pdf"></i>
+            </a>
             ${s.estado === 'cerrada' && esAdmin ? 
               `<button class="btn btn-success btn-xs" onclick="conciliarCaja(${s.id})" title="Conciliar">
                 <i class="ti ti-check"></i>
@@ -508,6 +511,7 @@ window.init_cajas = async function () {
     const movements=(res.movimientos||[]).slice(0,200).map(m=>`<tr><td>${escapeHtml(m.concepto||'')}</td><td><span class="caja-chip caja-chip--${m.tipo==='ingreso'?'ok':'danger'}">${escapeHtml(m.tipo||'')}</span></td><td>${m.venta_numero?escapeHtml(m.venta_numero):'—'}</td><td style="text-align:right;font-weight:800">${fmt(m.monto)}</td><td>${m.created_at?new Date(m.created_at).toLocaleString('es-PE'):'—'}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:#64748b">Sin movimientos</td></tr>';
     await Swal.fire({
       title:`Detalle completo · ${escapeHtml(s.codigo)}`,width:1000,confirmButtonColor:'#16a34a',background:'#fff',color:'#0f172a',confirmButtonText:'Cerrar',
+      showDenyButton:true,denyButtonText:'<i class="ti ti-file-type-pdf"></i> Informe PDF',denyButtonColor:'#0f172a',preDeny:()=>{window.open(`/api/caja/${s.id}/informe`,'_blank','noopener');return false;},
       html:`<div style="text-align:left;font-size:13px;color:#334155">
         <div class="caja-detail-grid">
           <div class="caja-detail-card"><small>Cajero</small><b>${escapeHtml(s.cajero_nombre||'—')}</b></div>

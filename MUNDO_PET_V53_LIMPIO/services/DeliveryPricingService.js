@@ -65,9 +65,9 @@ async function publicConfig(db) {
   const [settings, zones, branches] = await Promise.all([
     getSettings(db),
     listZones(db, { activeOnly: true }),
-    db.query('SELECT id,nombre,lat,lng FROM sucursales WHERE estado=0').then(([rows]) => rows)
+    db.query('SELECT id,nombre,direccion,telefono,lat,lng FROM sucursales WHERE estado=0').then(([rows]) => rows)
   ]);
-  const sucursales = branches.filter(b => validPoint(b.lat, b.lng)).map(b => ({ id: Number(b.id), nombre: b.nombre, lat: Number(b.lat), lng: Number(b.lng) }));
+  const sucursales = branches.filter(b => validPoint(b.lat, b.lng)).map(b => ({ id: Number(b.id), nombre: b.nombre, direccion: b.direccion || '', telefono: b.telefono || '', lat: Number(b.lat), lng: Number(b.lng) }));
   return {
     // Sin punto de despacho o sin zonas no se puede cobrar: no se ofrece delivery.
     disponible: zones.length > 0 && (!!settings.origin || sucursales.length > 0),

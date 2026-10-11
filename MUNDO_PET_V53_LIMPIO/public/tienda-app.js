@@ -350,7 +350,7 @@ const Tienda = {
     const points=origins.length?origins:(d.origen?[d.origen]:d.sucursales||[]);
     let L; try{ L=await MPMap.load(); }catch(e){ host.dataset.ready=''; host.innerHTML=`<div style="padding:24px;text-align:center;color:#64748b;font-size:13px">${this.esc(e.message)}</div>`; return; }
     const map=MPMap.create(L,host,{center:points[0],zoom:13});
-    MPMap.drawZones(L,map,{origins:points,zones:d.zonas});
+    MPMap.drawZones(L,map,{origins:points,zones:d.zonas,showOrigin:false});
     this._map=map; this._mapL=L; this._mapOrigin=points[0]||null;
     const legend=document.getElementById('ck-map-legend');
     if(legend) legend.innerHTML=[...d.zonas].sort((a,b)=>a.km_hasta-b.km_hasta).map((z,i)=>`<span><i style="--c:${MPMap.zoneColor(i)}"></i>${this.esc(z.nombre)} · hasta ${Number(z.km_hasta)} km · S/ ${Number(z.costo).toFixed(2)}</span>`).join('')+(Number(d.gratis_desde)>0?`<span><i class="ti ti-gift" style="border:0;background:none;width:auto;height:auto;color:#16a34a"></i>Gratis desde S/ ${Number(d.gratis_desde).toFixed(2)}</span>`:'');
@@ -496,7 +496,7 @@ const Tienda = {
           <div class="field"><label>Dirección de entrega</label><textarea id="ck-direccion" rows="2" placeholder="Av./Calle, número, lote" oninput="this.dataset.auto=''"></textarea></div>
           <div class="field"><label>Referencia</label><input id="ck-ref" placeholder="Color de la casa, piso, cerca de..."></div>
         </div>
-        <div id="pickup-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;padding:11px;border-radius:9px;font-size:12px;color:#1e40af;margin-bottom:12px">${branches.length>1?'Deberás recoger cada grupo en su sucursal: '+branches.map(x=>this.esc(x.nombre)).join(', '):'Recogerás tu compra en la sucursal correspondiente.'}<div id="pickup-slots" style="margin-top:10px"></div></div>
+        <div id="pickup-info" style="display:none"><div class="dz-box pk-box"><div id="pk-map" class="dz-map"></div><div id="pk-places" class="pk-places"></div></div><div id="pickup-slots"></div></div>
         <label style="font-size:13px;font-weight:700;margin:9px 0 8px;display:block">Método de pago</label>
         <div class="metodo-pago">${this.paymentMethodsHTML(methods)}</div>
         <div id="ck-payment-info" style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:13px;margin:0 0 12px">${this.paymentInfoHTML(methods[0])}</div>
@@ -515,8 +515,26 @@ const Tienda = {
     document.querySelectorAll('[data-ent]').forEach(x=>x.classList.remove('active'));el.classList.add('active');this._entrega=el.dataset.ent;
     document.getElementById('dir-wrap').style.display=this._entrega==='delivery'?'block':'none';
     document.getElementById('pickup-info').style.display=this._entrega==='recojo'?'block':'none';
-    if(this._entrega==='recojo')await this.cargarHorariosRecojo();
+    if(this._entrega==='recojo'){ this.iniciarMapaRecojo(); await this.cargarHorariosRecojo(); }
     if(this._entrega==='delivery'){ if(this.usaZonasDelivery()) await this.iniciarMapaDelivery(); await this.cotizarDelivery(); } else this.actualizarTotalCheckout();
+  },
+  // Mapa de recojo: muestra dónde queda cada local que entrega el pedido.
+  async iniciarMapaRecojo(){
+    const host=document.getElementById('pk-map'), list=document.getElementById('pk-places'); if(!host||host.dataset.ready) return;
+    host.dataset.ready='1';
+    const d=this.cfg.delivery||{}; const known=d.sucursales||[];
+    let places=(this._checkoutBranches||[]).map(b=>known.find(o=>Number(o.id)===Number(b.id))).filter(Boolean);
+    // Negocio con un solo punto marcado: ese punto es donde se recoge.
+    if(!places.length&&d.origen) places=[{...d.origen,nombre:(this._checkoutBranches||[]).length===1?this._checkoutBranches[0].nombre:(this.cfg.nombre||d.origen.nombre),direccion:this.cfg.direccion||''}];
+    if(!places.length){ host.closest('.pk-box').style.display='none'; return; }
+    const route=p=>`https://www.google.com/maps/dir/?api=1&destination=${Number(p.lat)},${Number(p.lng)}`;
+    list.innerHTML=places.map((p,i)=>`<div class="pk-place" data-i="${i}"><span class="pk-ico"><i class="ti ti-building-store"></i></span><div><b>${this.esc(p.nombre||'Tienda')}</b>${p.direccion?`<span>${this.esc(p.direccion)}</span>`:''}</div><a href="${route(p)}" target="_blank" rel="noopener"><i class="ti ti-route"></i> Cómo llegar</a></div>`).join('');
+    let L; try{ L=await MPMap.load(); }catch(e){ host.style.display='none'; return; }
+    const map=MPMap.create(L,host,{center:places[0],zoom:16});
+    const markers=places.map(p=>L.marker([Number(p.lat),Number(p.lng)],{icon:MPMap.pin(L,{color:'#15803d',icon:'ti-building-store',label:p.nombre||''}),keyboard:false}).addTo(map));
+    if(places.length>1) map.fitBounds(L.latLngBounds(places.map(p=>[Number(p.lat),Number(p.lng)])),{padding:[50,50],maxZoom:16});
+    list.querySelectorAll('.pk-place').forEach(row=>row.addEventListener('click',e=>{ if(e.target.closest('a')) return; const p=places[Number(row.dataset.i)]; map.setView([Number(p.lat),Number(p.lng)],17); }));
+    void markers;
   },
   async cargarHorariosRecojo(){
     const root=document.getElementById('pickup-slots');if(!root)return;root.innerHTML='<div style="color:#64748b">Cargando horarios...</div>';

@@ -445,6 +445,23 @@ async function ensureSchema(db, projectRoot) {
     changes.push('tabla delivery_zonas');
   }
 
+  // Mapa en vivo: puntos que comparte quien reparte.
+  if (!(await tableExists(db, 'usuario_ubicaciones'))) {
+    await db.query(`CREATE TABLE usuario_ubicaciones (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      usuario_id INT NOT NULL,
+      sucursal_id INT NULL,
+      lat DECIMAL(10,7) NOT NULL,
+      lng DECIMAL(10,7) NOT NULL,
+      precision_m INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_ubicacion_usuario_fecha (usuario_id,created_at),
+      KEY idx_ubicacion_fecha (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    changes.push('tabla usuario_ubicaciones');
+  }
+
   await ensureFilesAndPaths(db, projectRoot);
 
   // Limpieza segura: horarios pasados sin reservas activas. No elimina historial

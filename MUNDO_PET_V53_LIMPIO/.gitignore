@@ -34,3 +34,10 @@ database/backup_*.sql
 
 # Capturas y registros de Playwright
 .playwright-mcp/
+
+# Documentos generados (cotizaciones, notas de venta): contienen datos de clientes
+storage/documents/*
+!storage/documents/.gitkeep
+
+# Permisos locales de Claude Code en este equipo
+.claude/settings.local.json

@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mundo-pet-qa",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/qa-server.js"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "mundo-pet-qa-externo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/qa-server.js",
+        "--externo"
+      ],
+      "port": 3001
+    }
+  ]
+}

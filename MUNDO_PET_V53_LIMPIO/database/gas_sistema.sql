@@ -1938,5 +1938,25 @@ INSERT INTO `cajas_fisicas`
 (6,2,'Caja 01',0,1,1,'08:00:00','22:00:00',0,1,0),(7,2,'Caja 02',0,0,1,'08:00:00','22:00:00',0,2,0),(8,2,'Caja 03',0,0,1,'08:00:00','22:00:00',0,3,0),(9,2,'Caja 04',0,0,1,'08:00:00','22:00:00',0,4,0),(10,2,'Caja 05',0,0,1,'08:00:00','22:00:00',0,5,0),
 (11,3,'Caja 01',0,1,1,'08:00:00','22:00:00',0,1,0),(12,3,'Caja 02',0,0,1,'08:00:00','22:00:00',0,2,0),(13,3,'Caja 03',0,0,1,'08:00:00','22:00:00',0,3,0),(14,3,'Caja 04',0,0,1,'08:00:00','22:00:00',0,4,0),(15,3,'Caja 05',0,0,1,'08:00:00','22:00:00',0,5,0);
 
+-- Delivery por zonas de distancia (punto de despacho + anillos en km)
+ALTER TABLE `sucursales`
+  ADD COLUMN `lat` decimal(10,7) DEFAULT NULL,
+  ADD COLUMN `lng` decimal(10,7) DEFAULT NULL;
+
+CREATE TABLE IF NOT EXISTS `delivery_zonas` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(80) NOT NULL,
+  `km_hasta` decimal(6,2) NOT NULL,
+  `costo` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_delivery_zona_km` (`activo`,`km_hasta`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `delivery_zonas` (`nombre`,`km_hasta`,`costo`) VALUES
+('Zona cercana',3,5),('Zona media',6,8),('Zona lejana',10,12);
+
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;

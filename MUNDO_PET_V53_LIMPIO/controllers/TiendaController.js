@@ -118,7 +118,7 @@ const TiendaController = {
     const [[logo]] = await db.query("SELECT ruta FROM tienda_imagenes WHERE tipo='logo' AND estado=1 LIMIT 1");
     const [sliders] = await db.query("SELECT id,ruta,nombre FROM tienda_imagenes WHERE tipo='slider' AND estado=1 ORDER BY orden ASC,id ASC");
     const [sucursales] = await db.query('SELECT id,nombre,direccion,telefono FROM sucursales WHERE estado=0 ORDER BY nombre');
-    const delivery_tarifas = await DeliveryPricing.listTariffs(db,{activeOnly:true});
+    const delivery = await DeliveryPricing.publicConfig(db);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const metodos_pago = [];
     if (cfg.yape_activo !== 'false') metodos_pago.push({
@@ -156,7 +156,7 @@ const TiendaController = {
       plin_numero: cfg.plin_numero || '', plin_qr_ruta: cfg.plin_qr_ruta || '',
       transferencia_banco: cfg.transferencia_banco || '', transferencia_cuenta: cfg.transferencia_cuenta || '',
       transferencia_cci: cfg.transferencia_cci || '', transferencia_titular: cfg.transferencia_titular || '',
-      sliders, sucursales, delivery_tarifas, google_client_id: process.env.GOOGLE_CLIENT_ID || ''
+      sliders, sucursales, delivery, google_client_id: process.env.GOOGLE_CLIENT_ID || ''
     });
   }),
 
@@ -166,9 +166,8 @@ const TiendaController = {
     const branchIds=Array.isArray(body.sucursal_ids)?body.sucursal_ids:[];
     const quote=await DeliveryPricing.quote(db,{
       subtotal:Number(body.subtotal)||0,
-      units:Number(body.unidades)||0,
       branchIds,
-      location:{departamento:body.departamento,provincia:body.provincia,distrito:body.distrito}
+      location:{lat:body.lat,lng:body.lng}
     });
     res.json({ok:true,quote});
   }),
@@ -381,8 +380,12 @@ const TiendaController = {
       const branches = [...new Set(valid.map(x=>Number(x.sucursal_id)))];
       const totalUnits = valid.reduce((sum,item)=>sum+Number(item.cantidad||0),0);
       const deliveryQuote = body.tipo_entrega === 'delivery'
-        ? await DeliveryPricing.quote(conn,{subtotal,units:totalUnits,branchIds:branches,location:dir})
+        ? await DeliveryPricing.quote(conn,{subtotal,branchIds:branches,location:dir})
         : { total:0, tariff_id:null, tariff_name:'Recojo en tienda', base:0, per_unit:0, units:totalUnits, extra_units:0, free_from:0, free:true };
+      // Sin ubicación marcada o fuera de las zonas no se puede cobrar el envío.
+      if (body.tipo_entrega === 'delivery' && deliveryQuote.covered === false) {
+        throw new Error(deliveryQuote.description || 'No hay cobertura de delivery para esa ubicación');
+      }
       const costoDelivery = Number(deliveryQuote.total || 0);
       const totalPedido = Number((subtotal + costoDelivery).toFixed(2));
       const pickupSlots=[];

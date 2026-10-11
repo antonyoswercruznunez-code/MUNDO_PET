@@ -424,6 +424,27 @@ async function ensureSchema(db, projectRoot) {
     }
   }
 
+  // Delivery por zonas de distancia: punto de despacho por sucursal y anillos.
+  for (const column of ['lat', 'lng']) {
+    if (await addColumn(db, 'sucursales', column, 'DECIMAL(10,7) NULL')) changes.push(`sucursales.${column}`);
+  }
+  if (!(await tableExists(db, 'delivery_zonas'))) {
+    await db.query(`CREATE TABLE delivery_zonas (
+      id INT NOT NULL AUTO_INCREMENT,
+      nombre VARCHAR(80) NOT NULL,
+      km_hasta DECIMAL(6,2) NOT NULL,
+      costo DECIMAL(12,2) NOT NULL DEFAULT 0,
+      activo TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_delivery_zona_km (activo,km_hasta)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    await db.query(`INSERT INTO delivery_zonas (nombre,km_hasta,costo) VALUES
+      ('Zona cercana',3,5),('Zona media',6,8),('Zona lejana',10,12)`);
+    changes.push('tabla delivery_zonas');
+  }
+
   await ensureFilesAndPaths(db, projectRoot);
 
   // Limpieza segura: horarios pasados sin reservas activas. No elimina historial

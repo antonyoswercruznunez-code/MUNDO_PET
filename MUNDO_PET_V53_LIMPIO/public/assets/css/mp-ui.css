@@ -424,3 +424,14 @@ html[data-tema="oscuro"] .swal2-popup { background: var(--card-bg) !important; }
   .rn-line { grid-template-columns: minmax(0, 1fr) auto; }
   .rn-line-bar { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* ── BARRA SUPERIOR: acceso a la tienda web ───────────────────── */
+#btn-ver-tienda {
+  display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 13px; border-radius: 10px;
+  border: 1px solid var(--card-border); background: var(--card-bg); color: var(--texto-fuerte);
+  font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
+  transition: border-color .15s, color .15s, transform .15s var(--mp-ease);
+}
+#btn-ver-tienda i { font-size: 17px; color: var(--mpc-accent); }
+#btn-ver-tienda:hover { border-color: var(--mpc-accent); color: var(--mpc-accent); transform: translateY(-1px); }
+@media (max-width: 768px) { #btn-ver-tienda span { display: none; } #btn-ver-tienda { padding: 0 10px; } }

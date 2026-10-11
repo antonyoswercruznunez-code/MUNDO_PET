@@ -310,25 +310,73 @@ window.init_reportes = async function () {
     }
   }
 
+  // ══════════ EXPORTAR PDF ══════════
+  // Abre una hoja lista para imprimir o guardar como PDF: encabezado de marca,
+  // importes con formato, totales y orientación según el número de columnas.
   function exportarPDF(titulo, columnas, filas) {
-    const filtros = `Periodo: ${document.getElementById('rep-desde').value} al ${document.getElementById('rep-hasta').value}`;
-    const win = window.open('', '_blank');
-    let html = `<html><head><title>${titulo}</title><style>
-      body{font-family:Arial,sans-serif;padding:30px;color:#333}
-      h1{font-size:18px;margin-bottom:4px}
-      .sub{font-size:12px;color:#666;margin-bottom:20px}
-      table{width:100%;border-collapse:collapse;font-size:11px}
-      th{background:#e53935;color:#fff;padding:8px;text-align:left}
-      td{padding:7px;border-bottom:1px solid #ddd}
-      tr:nth-child(even){background:#f9f9f9}
-      @media print{button{display:none}}
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const tipos = columnas.map((nombre, c) => /dni|ruc|documento|teléfono|telefono|código|codigo|operaci|n° venta|número|numero|serie/i.test(nombre)
+      ? 'text' : MPExcel.columnType(nombre, filas.map(f => f[c])));
+    const fmt = (valor, tipo) => {
+      const n = MPExcel.toNumber(valor);
+      if (tipo === 'text' || n === null) return esc(valor);
+      if (tipo === 'money') return `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (tipo === 'pct') return `${n.toFixed(2)}%`;
+      return n.toLocaleString('es-PE', { maximumFractionDigits: 2 });
+    };
+    const sumables = tipos.map((t, c) => MPExcel.summable(columnas[c], t));
+    const totales = columnas.map((_, c) => c === 0 ? 'TOTAL'
+      : sumables[c] ? fmt(filas.reduce((acc, f) => acc + (MPExcel.toNumber(f[c]) || 0), 0), tipos[c]) : '');
+    const horizontal = columnas.length > 6;
+    const periodo = `${document.getElementById('rep-desde').value} al ${document.getElementById('rep-hasta').value}`;
+    const generado = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', dateStyle: 'long', timeStyle: 'short' }).format(new Date());
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${esc(titulo)}</title><style>
+      @page { size: A4 ${horizontal ? 'landscape' : 'portrait'}; margin: 14mm 12mm 16mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 28px 32px; font: 12px/1.45 "Segoe UI", Arial, sans-serif; color: #0f172a; background: #f1f5f9; }
+      .hoja { max-width: ${horizontal ? '1120px' : '820px'}; margin: 0 auto; background: #fff; border-radius: 14px; padding: 28px 30px; box-shadow: 0 10px 30px -12px rgba(15,23,42,.25); }
+      header { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; padding-bottom: 14px; border-bottom: 3px solid #15803d; }
+      header small { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #15803d; font-weight: 700; }
+      h1 { margin: 4px 0 0; font-size: 20px; letter-spacing: -.01em; }
+      .meta { text-align: right; font-size: 11px; color: #475569; }
+      .meta b { color: #0f172a; }
+      table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: ${columnas.length > 8 ? '10px' : '11.5px'}; }
+      thead { display: table-header-group; }
+      th { background: #1e293b; color: #fff; text-align: left; padding: 8px 9px; font-weight: 600; white-space: nowrap; }
+      td { padding: 7px 9px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+      tbody tr:nth-child(even) td { background: #f8fafc; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      tfoot td { background: #dcfce7; color: #166534; font-weight: 700; border-top: 2px solid #15803d; border-bottom: 0; }
+      tr { page-break-inside: avoid; }
+      .vacio { padding: 26px; text-align: center; color: #64748b; }
+      footer { margin-top: 16px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
+      .acciones { max-width: ${horizontal ? '1120px' : '820px'}; margin: 0 auto 14px; display: flex; gap: 8px; }
+      .acciones button { border: 0; border-radius: 9px; padding: 9px 16px; font: 600 13px "Segoe UI", Arial, sans-serif; cursor: pointer; background: #15803d; color: #fff; }
+      .acciones button.sec { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+      @media print {
+        body { background: #fff; padding: 0; }
+        .hoja { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+        .acciones { display: none; }
+        th, tfoot td, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
     </style></head><body>
-      <h1>${titulo}</h1>
-      <div class="sub">${filtros} · Generado: ${new Date().toLocaleString('es-PE')}</div>
-      <button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#e53935;color:#fff;border:none;border-radius:6px;cursor:pointer">Imprimir / Guardar PDF</button>
-      <table><thead><tr>${columnas.map(c => `<th>${c}</th>`).join('')}</tr></thead>
-      <tbody>${filas.map(f => `<tr>${f.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table>
+      <div class="acciones"><button onclick="window.print()">Imprimir o guardar como PDF</button><button class="sec" onclick="window.close()">Cerrar</button></div>
+      <div class="hoja">
+        <header>
+          <div><small>Distribuciones MAOZ E.I.R.L.</small><h1>${esc(titulo)}</h1></div>
+          <div class="meta"><div>Periodo: <b>${esc(periodo)}</b></div><div>${filas.length} ${filas.length === 1 ? 'registro' : 'registros'}</div><div>Generado el ${esc(generado)}</div></div>
+        </header>
+        ${filas.length ? `<table>
+          <thead><tr>${columnas.map((c, i) => `<th class="${tipos[i] === 'text' ? '' : 'num'}">${esc(c)}</th>`).join('')}</tr></thead>
+          <tbody>${filas.map(f => `<tr>${columnas.map((_, i) => `<td class="${tipos[i] === 'text' ? '' : 'num'}">${fmt(f[i], tipos[i])}</td>`).join('')}</tr>`).join('')}</tbody>
+          ${sumables.some(Boolean) ? `<tfoot><tr>${totales.map((v, i) => `<td class="${i === 0 || tipos[i] === 'text' ? '' : 'num'}">${v}</td>`).join('')}</tr></tfoot>` : ''}
+        </table>` : '<div class="vacio">No hay datos en el periodo seleccionado.</div>'}
+        <footer><span>Mundo Pet · Sistema de gestión</span><span>${esc(titulo)}</span></footer>
+      </div>
     </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return Swal.fire({ icon:'warning', title:'Ventana bloqueada', text:'Permite las ventanas emergentes de esta página para generar el PDF.' });
     win.document.write(html);
     win.document.close();
   }

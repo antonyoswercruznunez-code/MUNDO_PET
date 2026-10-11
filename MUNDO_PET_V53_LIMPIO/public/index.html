@@ -6,8 +6,9 @@
   <title>Mundo Pet · Panel</title>
   <script>try{if(localStorage.getItem('mp_tema')==='oscuro')document.documentElement.setAttribute('data-tema','oscuro');}catch(e){}</script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  <link rel="stylesheet" href="/assets/css/sistema.css?v=53.2.0">
-  <link rel="stylesheet" href="/assets/css/mp-ui.css?v=53.2.0">
+  <link rel="stylesheet" href="/assets/css/sistema.css?v=53.3.0">
+  <link rel="stylesheet" href="/assets/css/mp-ui.css?v=53.3.0">
+  <link rel="stylesheet" href="/assets/css/mapa.css?v=53.3.0">
   <style>
     /* ══ SIDEBAR CELESTE CLARO ══════════════════════════════ */
     #sidebar {
@@ -171,6 +172,7 @@
       <div class="topbar-breadcrumb"><strong id="breadcrumb-titulo">Dashboard</strong></div>
     </div>
     <div class="topbar-right">
+      <a id="btn-ver-tienda" href="/tienda" target="_blank" rel="noopener" title="Abrir la tienda web en otra pestaña"><i class="ti ti-building-store"></i><span>Ver tienda</span></a>
       <button id="btn-tema" title="Cambiar tema"><i class="ti ti-moon"></i></button>
       <div class="topbar-avatar" id="topbar-avatar">A</div>
       <div style="line-height:1.3">
@@ -188,12 +190,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-<script src="/assets/js/core/http.js?v=53.2.0"></script>
-<script src="/assets/js/core/router.js?v=53.2.0"></script>
-<script src="/assets/js/core/charts.js?v=53.2.0"></script>
-<script src="/assets/js/core/app.js?v=53.2.0"></script>
+<script src="/assets/js/core/http.js?v=53.3.0"></script>
+<script src="/assets/js/core/router.js?v=53.3.0"></script>
+<script src="/assets/js/core/charts.js?v=53.3.0"></script>
+<script src="/assets/js/core/app.js?v=53.3.0"></script>
 <script src="/assets/libs/xlsx.bundle.js"></script>
-<script src="/assets/js/core/excel.js?v=53.2.0"></script>
+<script src="/assets/js/core/excel.js?v=53.3.0"></script>
+<script src="/assets/js/core/mapa.js?v=53.3.0"></script>
+<script src="/assets/js/core/delivery-admin.js?v=53.3.0"></script>
 
 <script>
 (function(){

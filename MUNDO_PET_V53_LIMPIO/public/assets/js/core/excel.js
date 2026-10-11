@@ -51,6 +51,10 @@
   const looksLikeCode = (name, values) => /dni|ruc|documento|doc\.|teléfono|telefono|celular|código|codigo|operaci|n° venta|numero|número|serie|placa|sku/.test(String(name).toLowerCase())
     || values.some(v => typeof v === 'string' && /^0\d+$/.test(v.trim()));
 
+  // Promedios y precios unitarios no se suman: su total no significa nada.
+  const summable = (name, type) => (type === 'money' || type === 'int' || type === 'dec')
+    && !/promedio|ticket|precio|unitario|p\. ?unit|costo unit|stock m[ií]n|m[ií]nimo/i.test(String(name));
+
   const border = (color = C.line, style = 'thin') => ({ style, color: { rgb: color } });
 
   function exportTable({ title, columns, rows, period = '', company = 'DISTRIBUCIONES MAOZ E.I.R.L.', fileName, totals = true }) {
@@ -66,7 +70,7 @@
     const HEAD_ROW = 5;                      // fila (base 0) de los encabezados
     const FIRST = HEAD_ROW + 1;              // primera fila de datos
     const LAST = FIRST + rows.length - 1;
-    const hasTotals = totals && rows.length > 0 && types.some(t => t === 'money' || t === 'int' || t === 'dec');
+    const hasTotals = totals && rows.length > 0 && types.some((t, c) => summable(columns[c], t));
     const TOTAL_ROW = LAST + 1;
 
     const aoa = [
@@ -125,7 +129,7 @@
       for (let c = 0; c < nCols; c++) {
         const node = ensure(TOTAL_ROW, c);
         const type = types[c];
-        if (c > 0 && (type === 'money' || type === 'int' || type === 'dec')) {
+        if (c > 0 && summable(columns[c], type)) {
           const column = XLSX.utils.encode_col(c);
           const sum = rows.reduce((acc, row) => acc + (toNumber(row[c]) || 0), 0);
           // SUBTOTAL(109) suma solo lo visible: respeta los filtros de Excel.
@@ -162,5 +166,5 @@
     XLSX.writeFile(wb, `${safe}_${date}.xlsx`);
   }
 
-  window.MPExcel = { exportTable, toNumber, columnType };
+  window.MPExcel = { exportTable, toNumber, columnType, summable };
 })();

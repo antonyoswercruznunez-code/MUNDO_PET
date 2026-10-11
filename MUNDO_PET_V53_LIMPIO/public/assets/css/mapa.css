@@ -1,0 +1,93 @@
+/* Mapa de delivery (tienda y panel). Funciona con o sin las variables del panel. */
+.mpm-pin-wrap { background: none; border: 0; }
+.mpm-pin {
+  position: absolute; left: 0; top: 0; width: 36px; height: 36px; display: grid; place-items: center;
+  border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin, #16a34a);
+  box-shadow: 0 6px 14px rgba(15,23,42,.35); border: 2px solid #fff;
+}
+.mpm-pin i { transform: rotate(45deg); color: #fff; font-size: 18px; }
+.mpm-pin-label {
+  position: absolute; left: 50%; top: 46px; transform: translateX(-50%); white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; background: #0f172a; color: #fff; font: 600 11px/1.5 system-ui, sans-serif;
+  box-shadow: 0 4px 10px rgba(15,23,42,.25);
+}
+.leaflet-container { font: inherit; border-radius: 14px; z-index: 0; }
+.leaflet-control-attribution { font-size: 10px; }
+
+.dz-box { border: 1px solid var(--line, var(--card-border, #e2e8f0)); border-radius: 16px; overflow: hidden; background: var(--card-bg, #fff); margin-bottom: 14px; }
+.dz-search { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line, var(--card-border, #e2e8f0)); }
+.dz-search > i { color: #64748b; font-size: 18px; }
+.dz-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: inherit; padding: 6px 0; }
+.dz-search button {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line, var(--card-border, #e2e8f0)); background: transparent;
+  color: inherit; border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
+}
+.dz-search button:hover { border-color: #16a34a; color: #16a34a; }
+.dz-search button i { font-size: 16px; }
+.dz-results {
+  position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 1200; display: none; max-height: 240px; overflow: auto;
+  background: var(--card-bg, #fff); border: 1px solid var(--line, var(--card-border, #e2e8f0)); border-radius: 12px; box-shadow: 0 18px 40px -12px rgba(15,23,42,.35);
+}
+.dz-results.show { display: block; }
+.dz-results button {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line, var(--card-border, #eef2f6));
+  border-radius: 0; background: transparent; padding: 10px 12px; font-size: 13px; font-weight: 500; line-height: 1.35; cursor: pointer;
+}
+.dz-results button:last-child { border-bottom: 0; }
+.dz-results button:hover, .dz-results button:focus-visible { background: rgba(22,163,74,.08); color: inherit; outline: none; }
+.dz-results .dz-empty { padding: 12px; font-size: 13px; color: #64748b; }
+.dz-map { height: 300px; width: 100%; background: #e8eef3; border-radius: 0; }
+.dz-map .leaflet-container, .dz-map.leaflet-container { border-radius: 0; }
+.dz-status { display: flex; align-items: center; gap: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.4; border-top: 1px solid var(--line, var(--card-border, #e2e8f0)); }
+.dz-status > i { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; color: #64748b; background: rgba(100,116,139,.12); }
+.dz-status b { display: block; font-size: 14px; }
+.dz-status span { color: #64748b; }
+.dz-status .dz-price { margin-left: auto; font-size: 18px; font-weight: 700; white-space: nowrap; color: var(--ink, var(--texto-fuerte, #0f172a)); }
+.dz-status.ok > i { color: #15803d; background: rgba(22,163,74,.14); }
+.dz-status.bad > i { color: #b91c1c; background: rgba(220,38,38,.12); }
+.dz-status.bad b { color: #b91c1c; }
+.dz-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 14px 12px; font-size: 12px; color: #64748b; }
+.dz-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dz-legend i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 25%, transparent); }
+
+/* ── Panel: administración de zonas ── */
+.dza { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 18px; align-items: start; }
+.dza-map-card { border: 1px solid var(--card-border, #e2e8f0); border-radius: 16px; overflow: hidden; background: var(--card-bg, #fff); }
+.dza-map-card .dz-map { height: 440px; }
+.dza-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--card-border, #e2e8f0); }
+.dza-modes { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--mpc-track, #eef2f6); }
+.dza-modes button { border: 0; background: transparent; color: var(--texto-muted, #64748b); font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 11px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.dza-modes button.on { background: var(--card-bg, #fff); color: var(--texto-fuerte, #0f172a); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+.dza-toolbar select { margin-left: auto; max-width: 220px; }
+.dza-side { display: grid; gap: 14px; }
+.dza-panel { border: 1px solid var(--card-border, #e2e8f0); border-radius: 16px; padding: 16px; background: var(--card-bg, #fff); }
+.dza-panel h4 { margin: 0; font-size: 14px; font-weight: 700; color: var(--texto-fuerte, #0f172a); }
+.dza-panel > p { margin: 3px 0 12px; font-size: 12px; color: var(--texto-muted, #64748b); }
+.dza-zone { display: grid; grid-template-columns: 14px minmax(0, 1fr) 92px 92px 30px; gap: 8px; align-items: center; padding: 6px 0; }
+.dza-zone > i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 25%, transparent); }
+.dza-zone input { width: 100%; min-width: 0; border: 1px solid var(--input-border, #cbd5e1); background: var(--input-bg, #fff); color: inherit; border-radius: 9px; padding: 8px 9px; font: inherit; font-size: 13px; }
+.dza-zone input:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+.dza-zone .num { text-align: right; font-variant-numeric: tabular-nums; }
+.dza-zone button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--texto-muted, #64748b); cursor: pointer; display: grid; place-items: center; }
+.dza-zone button:hover { background: rgba(220,38,38,.1); color: #dc2626; }
+.dza-zone-head { font-size: 11px; font-weight: 600; color: var(--texto-muted, #64748b); padding: 0 0 2px; }
+.dza-zone-head span.num { text-align: right; }
+.dza-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dza-free { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; align-items: center; }
+.dza-free label { font-size: 13px; color: var(--texto, #334155); }
+.dza-free small { display: block; font-size: 11.5px; color: var(--texto-muted, #64748b); }
+.dza-sim { display: flex; align-items: center; gap: 12px; }
+.dza-sim > i { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; color: #64748b; background: rgba(100,116,139,.12); }
+.dza-sim.ok > i { color: #15803d; background: rgba(22,163,74,.14); }
+.dza-sim.bad > i { color: #b91c1c; background: rgba(220,38,38,.12); }
+.dza-sim b { display: block; font-size: 14px; color: var(--texto-fuerte, #0f172a); }
+.dza-sim span { font-size: 12.5px; color: var(--texto-muted, #64748b); }
+.dza-sim strong { margin-left: auto; font-size: 20px; color: var(--texto-fuerte, #0f172a); white-space: nowrap; }
+.dza-hint { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: rgba(245,158,11,.14); font-size: 13px; line-height: 1.45; margin-bottom: 14px; }
+.dza-hint i { font-size: 18px; color: #b45309; margin-top: 1px; }
+@media (max-width: 1100px) { .dza { grid-template-columns: minmax(0, 1fr); } .dza-map-card .dz-map { height: 340px; } }
+@media (max-width: 520px) {
+  .dz-map { height: 250px; }
+  .dz-search button span { display: none; }
+  .dza-zone { grid-template-columns: 14px minmax(0, 1fr) 70px 70px 30px; }
+}

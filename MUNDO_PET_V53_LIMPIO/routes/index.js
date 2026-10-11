@@ -144,10 +144,12 @@ router.get('/pagos', auth, requirePermission('pedidos_web.ver'), PedidoWeb.list)
 router.get('/config', auth, requireAny('config.ver','tienda.gestionar'), Config.get);
 router.post('/config', auth, requirePermission('config.gestionar'), Config.save);
 router.post('/config/medios-pago', auth, requirePermission('tienda.gestionar'), Config.savePaymentMethods);
-router.get('/config/delivery-tarifas', auth, requirePermission('tienda.gestionar'), Config.deliveryTarifas);
-router.post('/config/delivery-tarifas', auth, requirePermission('tienda.gestionar'), Config.saveDeliveryTarifa);
-router.put('/config/delivery-tarifas/:id', auth, requirePermission('tienda.gestionar'), Config.saveDeliveryTarifa);
-router.delete('/config/delivery-tarifas/:id', auth, requirePermission('tienda.gestionar'), Config.deleteDeliveryTarifa);
+router.get('/config/delivery-zonas', auth, requirePermission('tienda.gestionar'), Config.deliveryZonas);
+router.post('/config/delivery-zonas', auth, requirePermission('tienda.gestionar'), Config.saveDeliveryZona);
+router.put('/config/delivery-zonas/:id', auth, requirePermission('tienda.gestionar'), Config.saveDeliveryZona);
+router.delete('/config/delivery-zonas/:id', auth, requirePermission('tienda.gestionar'), Config.deleteDeliveryZona);
+router.post('/config/delivery-ajustes', auth, requirePermission('tienda.gestionar'), Config.saveDeliveryAjustes);
+router.post('/config/delivery-cotizar', auth, requirePermission('tienda.gestionar'), Config.cotizarDeliveryZona);
 router.post('/config/logo', auth, requirePermission('tienda.gestionar'), uploadLimiter, ...upload.logo, Config.uploadLogo);
 router.post('/config/slider', auth, requirePermission('tienda.gestionar'), uploadLimiter, ...upload.slider, Config.uploadSlider);
 router.patch('/config/slider/:id/estado', auth, requirePermission('tienda.gestionar'), Config.toggleSlider);

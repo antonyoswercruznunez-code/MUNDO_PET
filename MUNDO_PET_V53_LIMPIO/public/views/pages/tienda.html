@@ -1,7 +1,7 @@
 <div class="page-header">
   <div class="page-header-left">
     <h2><i class="ti ti-building-store"></i> Gestión de la tienda web</h2>
-    <p>Configura la presentación, los pagos y las tarifas de delivery del Ecommerce.</p>
+    <p>Configura la presentación, los pagos y las zonas de delivery de la tienda web.</p>
   </div>
   <a class="btn btn-outline" href="/tienda" target="_blank" rel="noopener">
     <i class="ti ti-external-link"></i> Ver tienda
@@ -32,29 +32,7 @@
     <button class="btn btn-primary" id="td-guardar-pagos"><i class="ti ti-device-floppy"></i> Guardar medios de pago</button>
   </div>
 
-  <section class="card td-delivery-card">
-    <div class="td-section-title"><div class="td-icon"><i class="ti ti-truck-delivery"></i></div><div><b>Tarifas de delivery</b><span>La tarifa base incluye la primera unidad. El cargo adicional se aplica desde la segunda unidad.</span></div><button id="td-nueva-tarifa" class="btn btn-outline"><i class="ti ti-plus"></i> Nueva tarifa</button></div>
-    <div class="td-delivery-rules">
-      <article><i class="ti ti-package"></i><div><b>Primera unidad incluida</b><span>La tarifa base cubre el inicio del envío.</span></div></article>
-      <article><i class="ti ti-packages"></i><div><b>Unidades adicionales</b><span>Se cobra: cantidad total − 1.</span></div></article>
-      <article><i class="ti ti-gift"></i><div><b>Envío gratuito</b><span>Se activa al alcanzar el subtotal configurado.</span></div></article>
-    </div>
-    <div class="td-delivery-defaults">
-      <div class="form-group"><label class="form-label">Tarifa general (S/)</label><input class="form-control" id="td-delivery-costo" type="number" min="0" step="0.10" placeholder="8.00"></div>
-      <div class="form-group"><label class="form-label">Cargo por unidad adicional (S/)</label><input class="form-control" id="td-delivery-unidad" type="number" min="0" step="0.10" placeholder="0.50"></div>
-      <div class="form-group"><label class="form-label">Gratis desde (S/)</label><input class="form-control" id="td-delivery-gratis" type="number" min="0" step="1" placeholder="150.00"></div>
-    </div>
-    <div class="td-delivery-simulator">
-      <div class="td-simulator-heading"><b>Simulador de la tarifa general</b><span>Comprueba el importe exacto antes de guardar.</span></div>
-      <div class="td-simulator-fields">
-        <label>Unidades<input id="td-preview-units" class="form-control" type="number" min="1" max="10000" value="1"></label>
-        <label>Subtotal de productos (S/)<input id="td-preview-subtotal" class="form-control" type="number" min="0" step="0.10" value="0"></label>
-      </div>
-      <div id="td-delivery-preview-result" class="td-delivery-result"><strong>S/ 0.00</strong><small>Tarifa estimada</small></div>
-    </div>
-    <div class="td-tariff-list-heading"><div><b>Tarifas registradas</b><span>Se muestran en un orden fijo y sin superponer columnas.</span></div></div>
-    <div class="table-responsive td-tariff-table"><table class="table"><thead><tr><th>Tarifa</th><th>Zona</th><th>Sucursal</th><th>Base</th><th>Unidad adicional</th><th>Gratis desde</th><th>Estado</th><th class="td-actions-head">Acciones</th></tr></thead><tbody id="td-tarifas-body"><tr><td colspan="8"><div class="loading-center"><div class="spinner"></div></div></td></tr></tbody></table></div>
-  </section>
+  <section class="card td-delivery-card" id="td-delivery-zonas"></section>
 
   <div id="td-pagos-grid" class="td-payments-grid">
 

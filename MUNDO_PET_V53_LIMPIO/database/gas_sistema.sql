@@ -1125,7 +1125,7 @@ ALTER TABLE `compra_items`
 
 ALTER TABLE `comprobantes`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_venta` (`venta_id`),
+  ADD KEY `idx_comprobante_venta` (`venta_id`,`tipo`),
   ADD UNIQUE KEY `uq_serie_numero` (`tipo`,`serie`,`numero`);
 
 ALTER TABLE `comunicaciones_baja`

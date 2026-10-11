@@ -407,6 +407,23 @@ async function ensureSchema(db, projectRoot) {
     }
   }
 
+  // Una venta puede tener su boleta/factura y además la nota de crédito que la
+  // anula, por eso venta_id deja de ser único en comprobantes.
+  if (await tableExists(db, 'comprobantes')) {
+    await addIndex(db,'comprobantes','idx_comprobante_venta','`venta_id`,`tipo`').catch(()=>false);
+    if (await indexExists(db,'comprobantes','uq_venta')) {
+      await db.query('ALTER TABLE `comprobantes` DROP INDEX `uq_venta`');
+      changes.push('comprobantes: nota de crédito por venta');
+    }
+  }
+  // Series de notas de crédito para boletas (BC01) y facturas (FC01).
+  if (await tableExists(db, 'series_comprobante')) {
+    for (const serie of ['BC01','FC01']) {
+      const [[exists]] = await db.query('SELECT id FROM series_comprobante WHERE serie=? LIMIT 1',[serie]);
+      if (!exists) await db.query("INSERT INTO series_comprobante (tipo,serie,ultimo_numero,estado) VALUES ('nota_credito',?,0,0)",[serie]);
+    }
+  }
+
   await ensureFilesAndPaths(db, projectRoot);
 
   // Limpieza segura: horarios pasados sin reservas activas. No elimina historial

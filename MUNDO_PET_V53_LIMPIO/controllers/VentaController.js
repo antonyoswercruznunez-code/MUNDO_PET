@@ -9,6 +9,7 @@ const { userScope, hasGlobalScope } = require('../middleware/permisos');
 const AuditService       = require('../services/AuditService');
 const InternalDocumentService = require('../services/InternalDocumentService');
 const DocumentService = require('../services/DocumentService');
+const { buildInvoice, buildCreditNote } = require('../helpers/comprobanteSunat');
 
 // ════════════════════════════════════════════════════════════
 //  HORA REAL DE PERÚ (UTC-5) — independiente de la zona del servidor
@@ -41,110 +42,6 @@ function fechaLegible(isoLocal) {
   const [Y, M, D] = d.split('-');
   const hm = (t || '').slice(0, 5);
   return `${D} de ${meses[+M - 1]} de ${Y}${hm ? ` · ${hm}` : ''}`;
-}
-
-// ── Helper: convierte una venta del sistema al JSON que pide MiAPI ──
-function mapearVentaAMiAPI(venta, items, tipo, serie, correlativo) {
-  const tipoDoc = tipo === 'factura' ? '01' : '03';
-
-  let cliTipoDoc = '0';
-  let cliNumDoc  = '00000000';
-  let cliNombre  = 'CLIENTE VARIOS';
-  let cliDir     = '-';
-
-  if (venta.numero_doc) {
-    cliTipoDoc = venta.tipo_doc === 'ruc' ? '6' : '1';
-    cliNumDoc  = venta.numero_doc;
-    cliNombre  = (venta.cli_nombre && venta.cli_nombre !== 'Cliente General')
-      ? venta.cli_nombre : 'CLIENTE VARIOS';
-    cliDir     = venta.cli_direccion || '-';
-  }
-
-  const r2 = n => parseFloat((+n).toFixed(2));
-  const r6 = n => parseFloat((+n).toFixed(6));
-
-  const totalFinal = r2(+venta.total);
-  const deliveryTotal = r2(Math.max(0, Number(venta.costo_delivery || 0)));
-  const productTotal = r2(Math.max(0, totalFinal - deliveryTotal));
-  const brutoConIgv = r2(items.reduce((sum, item) => sum + Number(item.precio_unit || 0) * Number(item.cantidad || 0), 0));
-  // El descuento solo se reparte entre productos. El delivery se emite como servicio separado,
-  // por lo que nunca altera el precio unitario ni la descripción de los artículos vendidos.
-  const productFactor = brutoConIgv > 0 ? productTotal / brutoConIgv : 1;
-
-  let accumulatedProducts = 0;
-  let sumBase = 0, sumIgv = 0;
-  const itemsMiAPI = items.map((item, index) => {
-    const quantity = Math.max(1, Number(item.cantidad || 1));
-    let lineTotal;
-    if (index < items.length - 1) {
-      lineTotal = r2(Number(item.precio_unit || 0) * quantity * productFactor);
-      accumulatedProducts += lineTotal;
-    } else {
-      lineTotal = r2(productTotal - accumulatedProducts);
-    }
-    const base = r2(lineTotal / 1.18);
-    const tax = r2(lineTotal - base);
-    sumBase += base;
-    sumIgv += tax;
-    return {
-      codProducto: `P${item.producto_id}`,
-      descripcion: item.producto_nombre,
-      unidad: 'NIU',
-      cantidad: quantity,
-      mtoBaseIgv: base,
-      mtoValorUnitario: r6(base / quantity),
-      mtoPrecioUnitario: r6(lineTotal / quantity),
-      codeAfect: '10',
-      igvPorcent: 18,
-      igv: tax
-    };
-  });
-
-  if (deliveryTotal > 0) {
-    const base = r2(deliveryTotal / 1.18);
-    const tax = r2(deliveryTotal - base);
-    sumBase += base;
-    sumIgv += tax;
-    itemsMiAPI.push({
-      codProducto: 'SERV-DELIVERY',
-      descripcion: 'Servicio de delivery',
-      unidad: 'NIU',
-      cantidad: 1,
-      mtoBaseIgv: base,
-      mtoValorUnitario: r6(base),
-      mtoPrecioUnitario: r6(deliveryTotal),
-      codeAfect: '10',
-      igvPorcent: 18,
-      igv: tax
-    });
-  }
-
-  // FECHA Y HORA REAL DE PERÚ (antes salía la del servidor en UTC = día siguiente)
-  const pe = peruParts();
-
-  return {
-    comprobante: {
-      tipoOperacion: '0101',
-      tipoDoc,
-      serie,
-      correlativo:  String(correlativo),
-      fechaEmision: pe.date,
-      horaEmision:  pe.time,
-      tipoMoneda:   'PEN',
-      tipoPago:     'Contado',
-      observacion:  venta.observacion || ''
-    },
-    cliente: {
-      codigoPais: 'PE',
-      tipoDoc:    cliTipoDoc,
-      numDoc:     cliNumDoc,
-      rznSocial:  cliNombre,
-      direccion:  cliDir
-    },
-    items: itemsMiAPI,
-    // Totales EXACTOS (suma de líneas) — para guardar lo mismo que recibe SUNAT
-    totales: { base: r2(sumBase), igv: r2(sumIgv), total: totalFinal }
-  };
 }
 
 // ── Helper: descarga un archivo (PDF/XML) para adjuntarlo al correo ──
@@ -395,6 +292,94 @@ function construirCorreoHTML({ venta, items, empresa, esNota, tipoLabel, comp, d
 </body></html>`;
 }
 
+
+// Evita que la misma venta se emita o anule dos veces a la vez (doble clic,
+// dos pestañas). Devuelve { ocupado:true } si otro proceso ya la está tratando.
+async function conBloqueoVenta(ventaId, fn) {
+  const conn = await getDB().getConnection();
+  const name = `mp_comprobante_venta_${ventaId}`;
+  try {
+    const [[lock]] = await conn.query('SELECT GET_LOCK(?, 0) AS ok', [name]);
+    if (Number(lock.ok) !== 1) return { ocupado: true };
+    try {
+      return await fn();
+    } finally {
+      await conn.query('SELECT RELEASE_LOCK(?)', [name]).catch(() => {});
+    }
+  } finally {
+    conn.release();
+  }
+}
+
+// Guarda en el comprobante lo que respondió SUNAT al enviarlo.
+async function registrarRespuestaSunat(comprobanteId, sr, rawSend) {
+  const ahora = peruNowSQL();
+  const aceptado = sr.estado === 'aceptado' || sr.estado === 'observado';
+  await ComprobanteModel.actualizarEnvio(comprobanteId, {
+    estado_sunat: aceptado ? 'aceptado' : (sr.estado === 'rechazado' ? 'rechazado' : 'emitido'),
+    cdr_estado: sr.estado,
+    cdr_codigo: aceptado ? (sr.codigo || '0') : sr.codigo,
+    cdr_mensaje: sr.mensaje || (aceptado ? 'Aceptado por SUNAT'
+      : sr.estado === 'rechazado' ? 'Rechazado por SUNAT' : 'Pendiente de respuesta de SUNAT'),
+    cdr_path: sr.cdr_path, hash_cpe: sr.hash,
+    sunat_response: JSON.stringify(rawSend), enviado_at: ahora, aceptado_at: aceptado ? ahora : null
+  });
+  return aceptado;
+}
+
+/*
+ * Revierte los efectos de una venta dentro de una transacción abierta:
+ * stock, efectivo de caja, entrega del pedido web y cupo de recojo.
+ * `permitirEntregado` se usa con la nota de crédito: SUNAT ya anuló el
+ * comprobante, así que un pedido entregado se trata como devolución.
+ */
+async function revertirVentaTx(conn, id, v, u, { permitirEntregado = false } = {}) {
+  // Bloquea la venta para que dos anulaciones simultáneas no repongan el
+  // stock dos veces.
+  const [[locked]] = await conn.query('SELECT estado_venta,pedido_web_id FROM ventas WHERE id=? FOR UPDATE', [id]);
+  if (!locked || locked.estado_venta === 'anulada') throw new Error('La venta ya está anulada');
+  // Una venta nacida de un pedido web arrastra su entrega: se cancela la
+  // preparación y se devuelve el cupo de recojo.
+  if (locked.pedido_web_id) {
+    const [deliveries] = await conn.query('SELECT id,estado FROM pedido_entregas_sucursal WHERE pedido_id=? FOR UPDATE', [locked.pedido_web_id]);
+    const entregado = deliveries.some(d => d.estado === 'entregado');
+    if (entregado && !permitirEntregado)
+      throw new Error('El pedido web de esta venta ya fue entregado. No se puede anular.');
+    const [slots] = await conn.query("SELECT id,horario_id FROM pedido_recojo_reservas WHERE pedido_id=? AND estado IN ('reservado','confirmado') FOR UPDATE", [locked.pedido_web_id]);
+    for (const slot of slots) {
+      await conn.query('UPDATE recojo_fechas SET cupos_usados=GREATEST(cupos_usados-1,0) WHERE id=?', [slot.horario_id]);
+      await conn.query("UPDATE pedido_recojo_reservas SET estado='liberado',updated_at=NOW() WHERE id=?", [slot.id]);
+    }
+    await conn.query("UPDATE pedido_entregas_sucursal SET estado='cancelado',observacion=?,updated_at=NOW() WHERE pedido_id=? AND estado<>'entregado'", [`Venta ${v.numero} anulada`, locked.pedido_web_id]);
+    if (!entregado) await conn.query("UPDATE pedidos_web SET estado_pedido='cancelado',updated_at=NOW() WHERE id=?", [locked.pedido_web_id]);
+  }
+  await VentaModel.anular(conn, id, u.id);
+  // El efectivo cobrado sale de la caja si la sesión sigue abierta; de lo
+  // contrario el cierre mostraría un faltante que no existe.
+  const [cashIn] = await conn.query(`
+    SELECT m.sesion_id,m.sucursal_id,m.monto
+    FROM caja_movimientos m JOIN caja_sesiones s ON s.id=m.sesion_id
+    WHERE m.venta_id=? AND m.tipo='ingreso' AND s.estado='abierta'
+  `, [id]);
+  for (const movement of cashIn) {
+    await CajaModel.insertMovimiento(conn, {
+      sesion_id: movement.sesion_id, sucursal_id: movement.sucursal_id, tipo: 'egreso',
+      concepto: `Anulación venta ${v.numero}`, monto: movement.monto,
+      venta_id: null, usuario_id: u.id, created_at: peruNowSQL()
+    });
+  }
+  const items = await VentaModel.getVentaItems(conn, id);
+  for (const item of items) {
+    await VentaModel.reponerStock(conn, item.producto_id, item.cantidad);
+    const [[p]] = await conn.query('SELECT stock_actual FROM productos WHERE id = ?', [item.producto_id]);
+    await VentaModel.insertMovimiento(conn, {
+      producto_id:   item.producto_id, tipo: 'ANULACION',
+      cantidad:      item.cantidad, stock_antes: p.stock_actual - item.cantidad,
+      stock_despues: p.stock_actual, referencia: `Anulación ${v.numero}`,
+      usuario_id:    u.id, sucursal_id: item.sucursal_id || v.sucursal_id
+    });
+  }
+}
 
 async function ventaEnAlcance(req, venta) {
   if (!venta) return false;
@@ -665,58 +650,20 @@ const VentaController = {
     if (!v) return;
     if (v.estado_venta === 'anulada')
       return res.json({ ok: false, msg: 'La venta ya está anulada' });
-    if (!['nota','nota_venta'].includes(v.tipo_comprobante))
-      return res.json({ ok: false, msg: 'No se puede eliminar una boleta o factura. Se requiere una Nota de Crédito.' });
+    // Un comprobante aceptado solo se anula con nota de crédito. Si fue
+    // rechazado nunca tuvo validez, así que la venta se puede anular directo.
+    const comp = await ComprobanteModel.getByVenta(id);
+    if (comp && ['aceptado','observado'].includes(comp.cdr_estado))
+      return res.json({ ok: false, msg: 'Esta venta tiene un comprobante aceptado por SUNAT. Anúlala con una Nota de Crédito.' });
+    if (comp && comp.cdr_estado === 'pendiente')
+      return res.json({ ok: false, msg: 'El comprobante está pendiente de respuesta de SUNAT. Usa "Reintentar envío" antes de anular.' });
     if (v.estado_sunat === 'aceptado')
       return res.json({ ok: false, msg: 'No se puede anular una venta con comprobante aceptado por SUNAT' });
 
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      // Bloquea la venta para que dos anulaciones simultáneas no repongan el
-      // stock dos veces.
-      const [[locked]] = await conn.query('SELECT estado_venta,pedido_web_id FROM ventas WHERE id=? FOR UPDATE', [id]);
-      if (!locked || locked.estado_venta === 'anulada') throw new Error('La venta ya está anulada');
-      // Una venta nacida de un pedido web arrastra su entrega: se cancela la
-      // preparación y se devuelve el cupo de recojo. Si ya se entregó, no se anula.
-      if (locked.pedido_web_id) {
-        const [deliveries] = await conn.query('SELECT id,estado FROM pedido_entregas_sucursal WHERE pedido_id=? FOR UPDATE', [locked.pedido_web_id]);
-        if (deliveries.some(d => d.estado === 'entregado'))
-          throw new Error('El pedido web de esta venta ya fue entregado. No se puede anular.');
-        const [slots] = await conn.query("SELECT id,horario_id FROM pedido_recojo_reservas WHERE pedido_id=? AND estado IN ('reservado','confirmado') FOR UPDATE", [locked.pedido_web_id]);
-        for (const slot of slots) {
-          await conn.query('UPDATE recojo_fechas SET cupos_usados=GREATEST(cupos_usados-1,0) WHERE id=?', [slot.horario_id]);
-          await conn.query("UPDATE pedido_recojo_reservas SET estado='liberado',updated_at=NOW() WHERE id=?", [slot.id]);
-        }
-        await conn.query("UPDATE pedido_entregas_sucursal SET estado='cancelado',observacion=?,updated_at=NOW() WHERE pedido_id=?", [`Venta ${v.numero} anulada`, locked.pedido_web_id]);
-        await conn.query("UPDATE pedidos_web SET estado_pedido='cancelado',updated_at=NOW() WHERE id=?", [locked.pedido_web_id]);
-      }
-      await VentaModel.anular(conn, id, u.id);
-      // El efectivo cobrado sale de la caja si la sesión sigue abierta; de lo
-      // contrario el cierre mostraría un faltante que no existe.
-      const [cashIn] = await conn.query(`
-        SELECT m.sesion_id,m.sucursal_id,m.monto
-        FROM caja_movimientos m JOIN caja_sesiones s ON s.id=m.sesion_id
-        WHERE m.venta_id=? AND m.tipo='ingreso' AND s.estado='abierta'
-      `, [id]);
-      for (const movement of cashIn) {
-        await CajaModel.insertMovimiento(conn, {
-          sesion_id: movement.sesion_id, sucursal_id: movement.sucursal_id, tipo: 'egreso',
-          concepto: `Anulación venta ${v.numero}`, monto: movement.monto,
-          venta_id: null, usuario_id: u.id, created_at: peruNowSQL()
-        });
-      }
-      const items = await VentaModel.getVentaItems(conn, id);
-      for (const item of items) {
-        await VentaModel.reponerStock(conn, item.producto_id, item.cantidad);
-        const [[p]] = await conn.query('SELECT stock_actual FROM productos WHERE id = ?', [item.producto_id]);
-        await VentaModel.insertMovimiento(conn, {
-          producto_id:   item.producto_id, tipo: 'ANULACION',
-          cantidad:      item.cantidad, stock_antes: p.stock_actual - item.cantidad,
-          stock_despues: p.stock_actual, referencia: `Anulación ${v.numero}`,
-          usuario_id:    u.id, sucursal_id: item.sucursal_id || v.sucursal_id
-        });
-      }
+      await revertirVentaTx(conn, id, v, u);
       await conn.commit();
       res.json({ ok: true, msg: 'Nota de venta eliminada' });
     } catch(e) {
@@ -727,7 +674,7 @@ const VentaController = {
     }
   }),
 
-  // ── EMITIR: genera + firma + envía a SUNAT + CDR (MiAPI invoice/create) ──
+  // ── EMITIR: genera y firma el comprobante (invoice/create) y lo envía a SUNAT ──
   emitir: wrap(async (req, res) => {
     const db = getDB();
     const id = +req.params.id;
@@ -738,179 +685,239 @@ const VentaController = {
 
     if (!['boleta','factura'].includes(tipo))
       return res.json({ ok: false, msg: 'Tipo inválido' });
+    if (!(await exigirVentaEnAlcance(req, res, id))) return;
 
-    const v = await exigirVentaEnAlcance(req, res, id);
-    if (!v) return;
-    if (v.estado_venta === 'anulada')
-      return res.json({ ok: false, msg: 'La venta está anulada' });
-    // Permitido emitir cuando: nunca se emitió (sin_emitir) o fue RECHAZADO (reemitir corregido)
-    if (!['sin_emitir', 'rechazado'].includes(v.estado_sunat))
-      return res.json({ ok: false, msg: 'Esta venta ya tiene un comprobante emitido' });
-    if (tipo === 'factura' && (v.tipo_doc !== 'ruc' || !v.numero_doc))
-      return res.json({ ok: false, msg: 'La factura requiere un cliente con RUC' });
-    if (tipo === 'boleta' && !v.numero_doc)
-      return res.json({ ok: false, msg: 'La boleta requiere un cliente con DNI' });
+    const result = await conBloqueoVenta(id, async () => {
+      // Se vuelve a leer con el bloqueo tomado: el estado pudo cambiar.
+      const v = await VentaModel.getById(id);
+      if (v.estado_venta === 'anulada')
+        return { ok: false, msg: 'La venta está anulada' };
+      // Permitido emitir cuando: nunca se emitió (sin_emitir) o fue RECHAZADO (reemitir corregido)
+      if (!['sin_emitir', 'rechazado'].includes(v.estado_sunat))
+        return { ok: false, msg: 'Esta venta ya tiene un comprobante emitido' };
+      if (tipo === 'factura' && (v.tipo_doc !== 'ruc' || !/^\d{11}$/.test(String(v.numero_doc || ''))))
+        return { ok: false, msg: 'La factura requiere un cliente con RUC de 11 dígitos' };
+      if (tipo === 'boleta' && !v.numero_doc)
+        return { ok: false, msg: 'La boleta requiere un cliente con DNI' };
 
-    // Si hay un comprobante previo, decidir según su estado real
-    const compPrevio = await ComprobanteModel.getByVenta(id);
-    if (compPrevio) {
-      const ce = compPrevio.cdr_estado;
-      if (ce === 'aceptado' || ce === 'observado')
-        return res.json({ ok: false, msg: 'Ya tiene un comprobante aceptado por SUNAT. Use Nota de Crédito para anularlo.' });
-      if (ce === 'pendiente')
-        return res.json({ ok: false, msg: 'El comprobante ya fue generado y está pendiente de envío. Use "Reintentar envío".' });
-      // rechazado → se borra para reemitir limpio
-      const cdel = await db.getConnection();
-      try { await ComprobanteModel.eliminarPorVenta(cdel, id); } finally { cdel.release(); }
-    }
+      const compPrevio = await ComprobanteModel.getByVenta(id);
+      if (compPrevio) {
+        const ce = compPrevio.cdr_estado;
+        if (ce === 'aceptado' || ce === 'observado')
+          return { ok: false, msg: 'Ya tiene un comprobante aceptado por SUNAT. Use Nota de Crédito para anularlo.' };
+        if (ce === 'pendiente')
+          return { ok: false, msg: 'El comprobante ya fue generado y está pendiente de envío. Use "Reintentar envío".' };
+      }
 
-    const datos    = await VentaModel.getVentaParaEmitir(id);
-    const serieStr = tipo === 'boleta' ? 'B001' : 'F001';
-    const tipoDoc  = tipo === 'factura' ? '01' : '03';
+      const datos    = await VentaModel.getVentaParaEmitir(id);
+      const serieStr = tipo === 'boleta' ? 'B001' : 'F001';
+      const tipoDoc  = tipo === 'factura' ? '01' : '03';
 
-    // ── Reservar correlativo ──
-    const conn = await db.getConnection();
-    let nuevoNum, numCompleto, serieRow;
-    try {
-      await conn.beginTransaction();
-      serieRow = await VentaModel.getSerie(conn, serieStr);
-      if (!serieRow) throw new Error(`Serie ${serieStr} no encontrada`);
-      nuevoNum    = serieRow.ultimo_numero + 1;
-      numCompleto = `${serieStr}-${String(nuevoNum).padStart(6, '0')}`;
-      await VentaModel.incrementarSerie(conn, serieRow.id, nuevoNum);
-      await conn.commit();
-    } catch(e) {
-      await conn.rollback();
-      conn.release();
-      return res.json({ ok: false, msg: e.message });
-    }
-    conn.release();
+      // ── PASO 1: generar y firmar ──
+      // La fila de la serie queda bloqueada hasta guardar el comprobante. El
+      // correlativo solo se consume si MiAPI lo generó y quedó registrado, así
+      // no hay números saltados ni repetidos aunque dos cajeros emitan a la vez.
+      const conn = await db.getConnection();
+      let nuevoNum, numCompleto, comprobanteId;
+      try {
+        await conn.beginTransaction();
+        const serieRow = await VentaModel.getSerie(conn, serieStr);
+        if (!serieRow) throw new Error(`Serie ${serieStr} no encontrada`);
+        nuevoNum    = serieRow.ultimo_numero + 1;
+        numCompleto = `${serieStr}-${String(nuevoNum).padStart(6, '0')}`;
 
-    const liberarCorrelativo = async () => {
-      const c = await db.getConnection();
-      try { await VentaModel.incrementarSerie(c, serieRow.id, nuevoNum - 1); } finally { c.release(); }
+        const pe = peruParts();
+        const built = buildInvoice({
+          venta: datos.venta, items: datos.items, tipo,
+          serie: serieStr, correlativo: nuevoNum, fecha: pe.date, hora: pe.time
+        });
+        const rawCreate = await SunatService.generarComprobante(built.payload);
+        const cr = interpretarCreate(rawCreate);
+        if (!cr.ok) throw new Error(cr.mensaje || 'MiAPI no pudo generar el comprobante');
+
+        // Un comprobante rechazado antes se reemplaza por el nuevo.
+        await ComprobanteModel.eliminarPorVenta(conn, id);
+        comprobanteId = await ComprobanteModel.crear(conn, {
+          venta_id: id, tipo, serie: serieStr, numero: nuevoNum,
+          numero_full: numCompleto, hash_cpe: cr.hash,
+          // Base e IGV exactos: la suma de las líneas enviadas a SUNAT.
+          subtotal: built.totales.base, igv: built.totales.igv, total: built.totales.total,
+          xml_path:            cr.xml_firmado,
+          xml_sin_firmar_path: cr.xml_sin_firmar,
+          pdf_a4_path:         cr.pdf_a4,
+          pdf_ticket_path:     cr.pdf_ticket,
+          cdr_path:            null,
+          estado_sunat:        'emitido',
+          cdr_estado:          'pendiente',
+          cdr_codigo:          null,
+          cdr_mensaje:         'Comprobante generado, pendiente de envío a SUNAT',
+          sunat_response:      JSON.stringify(rawCreate),
+          created_by:          u.id,
+          fecha_peru:          emitidoAtPeru
+        });
+        await VentaModel.incrementarSerie(conn, serieRow.id, nuevoNum);
+        await conn.query(
+          'UPDATE ventas SET estado_sunat = ?, tipo_comprobante = ?, numero = ? WHERE id = ?',
+          ['emitido', tipo, numCompleto, id]
+        );
+        await conn.commit();
+      } catch(e) {
+        await conn.rollback();
+        return { ok: false, msg: `No se pudo generar el comprobante: ${e.message}` };
+      } finally {
+        conn.release();
+      }
+
+      // ── PASO 2: enviar a SUNAT (invoice/send) ── ESTE es el que trae el CDR
+      let rawSend, sr;
+      try {
+        rawSend = await SunatService.enviarSunat(tipoDoc, serieStr, nuevoNum);
+        sr = interpretarSunat(rawSend);
+      } catch(e) {
+        // SUNAT/MiAPI no respondió → queda pendiente y reintentable (NO se pierde el número)
+        return {
+          ok: true, estado: 'pendiente', numero: numCompleto, comprobante_id: comprobanteId,
+          msg: `Comprobante generado pero SUNAT no respondió (${e.message}). Quedó pendiente: usa "Reintentar envío".`
+        };
+      }
+
+      const aceptado = await registrarRespuestaSunat(comprobanteId, sr, rawSend);
+      if (sr.estado === 'rechazado') {
+        // Se conserva el motivo y la venta queda lista para corregir y reemitir.
+        await db.query('UPDATE ventas SET estado_sunat = ? WHERE id = ?', ['rechazado', id]);
+        return { ok: true, estado: 'rechazado', numero: numCompleto, codigo: sr.codigo, msg: sr.mensaje || 'SUNAT rechazó el comprobante' };
+      }
+      if (!aceptado) {
+        return { ok: true, estado: 'pendiente', numero: numCompleto,
+          msg: sr.mensaje || 'Enviado a SUNAT, pendiente de confirmación. Usa "Reintentar envío".' };
+      }
+      await db.query('UPDATE ventas SET estado_sunat = ? WHERE id = ?', ['aceptado', id]);
+      await AuditService.log(req,{accion:'comprobante_emitido',modulo:'ventas',entidad:'ventas',entidad_id:id,datos:{numero:numCompleto,tipo,estado:sr.estado}});
+      return {
+        ok: true, estado: sr.estado, numero: numCompleto, comprobante_id: comprobanteId,
+        observaciones: sr.observaciones,
+        msg: sr.estado === 'observado' ? 'Aceptado por SUNAT con observaciones' : 'Comprobante aceptado por SUNAT'
+      };
+    });
+
+    if (result.ocupado) return res.status(409).json({ ok: false, msg: 'Esta venta ya se está procesando. Espera unos segundos.' });
+    res.json(result);
+  }),
+
+  // ── NOTA DE CRÉDITO: anula por completo una boleta o factura aceptada ──
+  // Es la única forma legal de dejar sin efecto un comprobante ya aceptado.
+  // La venta, el stock y la caja solo se revierten cuando SUNAT acepta la nota.
+  notaCredito: wrap(async (req, res) => {
+    const db = getDB();
+    const id = +req.params.id;
+    const u  = req.session.usuario;
+    const motivo = String(req.body.motivo || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (motivo.length < 5)
+      return res.json({ ok: false, msg: 'Escribe el motivo de la anulación (mínimo 5 caracteres)' });
+    if (!(await exigirVentaEnAlcance(req, res, id))) return;
+
+    const aplicarAnulacion = async (v) => {
+      const conn = await db.getConnection();
+      try {
+        await conn.beginTransaction();
+        await revertirVentaTx(conn, id, v, u, { permitirEntregado: true });
+        await conn.commit();
+      } catch(e) {
+        await conn.rollback();
+        throw e;
+      } finally {
+        conn.release();
+      }
     };
 
-    // ── PASO 1: generar y firmar (invoice/create) ──
-    const payloadFull = mapearVentaAMiAPI(datos.venta, datos.items, tipo, serieStr, nuevoNum);
-    // IGV y base EXACTOS = suma de las líneas (idéntico a lo que recibe y acepta SUNAT)
-    const base = payloadFull.totales.base;
-    const igv  = payloadFull.totales.igv;
-    // Lo que se envía a MiAPI va SIN el campo extra 'totales'
-    const payload = {
-      comprobante: payloadFull.comprobante,
-      cliente:     payloadFull.cliente,
-      items:       payloadFull.items
-    };
-    let rawCreate, cr;
-    try {
-      rawCreate = await SunatService.generarComprobante(payload);
-      cr = interpretarCreate(rawCreate);
-    } catch(e) {
-      await liberarCorrelativo();
-      return res.json({ ok: false, msg: `Error al generar el comprobante: ${e.message}` });
-    }
-    if (!cr.ok) {
-      await liberarCorrelativo();
-      return res.json({ ok: false, msg: cr.mensaje || 'MiAPI no pudo generar el comprobante' });
-    }
+    const result = await conBloqueoVenta(id, async () => {
+      const v = await VentaModel.getById(id);
+      const original = await ComprobanteModel.getByVenta(id);
+      if (!original || !['aceptado','observado'].includes(original.cdr_estado))
+        return { ok: false, msg: 'Solo se anula con nota de crédito un comprobante aceptado por SUNAT' };
 
-    // ── Guardar el comprobante YA generado (estado pendiente) — así no se pierde aunque falle el envío ──
-    const c4 = await db.getConnection();
-    let comprobanteId;
-    try {
-      await c4.beginTransaction();
-      comprobanteId = await ComprobanteModel.crear(c4, {
-        venta_id: id, tipo, serie: serieStr, numero: nuevoNum,
-        numero_full: numCompleto, hash_cpe: cr.hash,
-        subtotal: base, igv, total: v.total,
-        xml_path:            cr.xml_firmado,
-        xml_sin_firmar_path: cr.xml_sin_firmar,
-        pdf_a4_path:         cr.pdf_a4,
-        pdf_ticket_path:     cr.pdf_ticket,
-        cdr_path:            null,
-        estado_sunat:        'emitido',
-        cdr_estado:          'pendiente',
-        cdr_codigo:          null,
-        cdr_mensaje:         'Comprobante generado, pendiente de envío a SUNAT',
-        sunat_response:      JSON.stringify(rawCreate),
-        created_by:          u.id,
-        fecha_peru:          emitidoAtPeru
-      });
-      await c4.query(
-        'UPDATE ventas SET estado_sunat = ?, tipo_comprobante = ?, numero = ? WHERE id = ?',
-        ['emitido', tipo, numCompleto, id]
-      );
-      await c4.commit();
-    } catch(e) {
-      await c4.rollback();
-      c4.release();
-      await liberarCorrelativo();
-      return res.json({ ok: false, msg: `Error guardando comprobante: ${e.message}` });
-    }
-    c4.release();
+      let nota = await ComprobanteModel.getNotaCreditoByVenta(id);
+      const notaAceptada = !!nota && ['aceptado','observado'].includes(nota.cdr_estado);
+      if (notaAceptada && v.estado_venta === 'anulada')
+        return { ok: false, msg: `La venta ya fue anulada con la nota de crédito ${nota.numero_full}` };
+      if (!notaAceptada && v.estado_venta === 'anulada')
+        return { ok: false, msg: 'La venta ya está anulada' };
 
-    // ── PASO 2: enviar a SUNAT (invoice/send) ── ESTE es el que trae el CDR
-    let rawSend, sr;
-    try {
-      rawSend = await SunatService.enviarSunat(tipoDoc, serieStr, nuevoNum);
-      sr = interpretarSunat(rawSend);
-    } catch(e) {
-      // SUNAT/MiAPI no respondió → queda pendiente y reintentable (NO se pierde el número)
-      return res.json({
-        ok: true, estado: 'pendiente', numero: numCompleto, comprobante_id: comprobanteId,
-        msg: `Comprobante generado pero SUNAT no respondió (${e.message}). Quedó pendiente: usa "Reintentar envío".`
-      });
-    }
+      // ── PASO 1: generar y firmar la nota (si no hay una pendiente de envío) ──
+      if (!nota || nota.cdr_estado === 'rechazado') {
+        const datos    = await VentaModel.getVentaParaEmitir(id);
+        const serieStr = original.tipo === 'factura' ? 'FC01' : 'BC01';
+        const conn = await db.getConnection();
+        try {
+          await conn.beginTransaction();
+          const serieRow = await VentaModel.getSerie(conn, serieStr);
+          if (!serieRow) throw new Error(`Serie ${serieStr} no encontrada`);
+          const nuevoNum    = serieRow.ultimo_numero + 1;
+          const numCompleto = `${serieStr}-${String(nuevoNum).padStart(6, '0')}`;
+          const pe = peruParts();
+          const built = buildCreditNote({
+            venta: datos.venta, items: datos.items, original,
+            serie: serieStr, correlativo: nuevoNum, fecha: pe.date, hora: pe.time, motivo
+          });
+          const rawCreate = await SunatService.generarNota(built.payload);
+          const cr = interpretarCreate(rawCreate);
+          if (!cr.ok) throw new Error(cr.mensaje || 'MiAPI no pudo generar la nota de crédito');
+          const notaId = await ComprobanteModel.crear(conn, {
+            venta_id: id, tipo: 'nota_credito', serie: serieStr, numero: nuevoNum,
+            numero_full: numCompleto, hash_cpe: cr.hash,
+            subtotal: built.totales.base, igv: built.totales.igv, total: built.totales.total,
+            xml_path: cr.xml_firmado, xml_sin_firmar_path: cr.xml_sin_firmar,
+            pdf_a4_path: cr.pdf_a4, pdf_ticket_path: cr.pdf_ticket, cdr_path: null,
+            estado_sunat: 'emitido', cdr_estado: 'pendiente', cdr_codigo: null,
+            cdr_mensaje: 'Nota de crédito generada, pendiente de envío a SUNAT',
+            sunat_response: JSON.stringify(rawCreate), created_by: u.id, fecha_peru: peruNowSQL(),
+            motivo_anula: motivo, comprobante_ref: original.numero_full
+          });
+          await VentaModel.incrementarSerie(conn, serieRow.id, nuevoNum);
+          await conn.commit();
+          nota = await ComprobanteModel.getById(notaId);
+        } catch(e) {
+          await conn.rollback();
+          return { ok: false, msg: `No se pudo generar la nota de crédito: ${e.message}` };
+        } finally {
+          conn.release();
+        }
+      }
 
-    const ahora = peruNowSQL();
+      // ── PASO 2: enviar a SUNAT (salvo que ya estuviera aceptada) ──
+      let estado = nota.cdr_estado;
+      let observaciones = null;
+      if (!['aceptado','observado'].includes(estado)) {
+        let rawSend, sr;
+        try {
+          rawSend = await SunatService.enviarSunat('07', nota.serie, nota.numero);
+          sr = interpretarSunat(rawSend);
+        } catch(e) {
+          return { ok: true, estado: 'pendiente', numero: nota.numero_full,
+            msg: `Nota de crédito ${nota.numero_full} generada, pero SUNAT no respondió (${e.message}). La venta sigue vigente: vuelve a presionar "Anular con nota de crédito" para reintentar.` };
+        }
+        const aceptado = await registrarRespuestaSunat(nota.id, sr, rawSend);
+        if (sr.estado === 'rechazado')
+          return { ok: true, estado: 'rechazado', numero: nota.numero_full, codigo: sr.codigo,
+            msg: `SUNAT rechazó la nota de crédito: ${sr.mensaje || 'sin detalle'}. La venta sigue vigente.` };
+        if (!aceptado)
+          return { ok: true, estado: 'pendiente', numero: nota.numero_full,
+            msg: sr.mensaje || 'Nota de crédito enviada, pendiente de confirmación de SUNAT. La venta sigue vigente.' };
+        estado = sr.estado;
+        observaciones = sr.observaciones;
+      }
 
-    if (sr.estado === 'rechazado') {
-      // SUNAT rechazó → guardamos el motivo (auditoría) y dejamos la venta lista para reemitir
-      await ComprobanteModel.actualizarEnvio(comprobanteId, {
-        estado_sunat: 'rechazado', cdr_estado: 'rechazado',
-        cdr_codigo: sr.codigo, cdr_mensaje: sr.mensaje || 'Rechazado por SUNAT',
-        cdr_path: sr.cdr_path, hash_cpe: sr.hash,
-        sunat_response: JSON.stringify(rawSend), enviado_at: ahora, aceptado_at: null
-      });
-      await getDB().query('UPDATE ventas SET estado_sunat = ? WHERE id = ?', ['rechazado', id]);
-      return res.json({
-        ok: true, estado: 'rechazado', numero: numCompleto,
-        codigo: sr.codigo, msg: sr.mensaje || 'SUNAT rechazó el comprobante'
-      });
-    }
-
-    if (sr.estado === 'pendiente') {
-      await ComprobanteModel.actualizarEnvio(comprobanteId, {
-        estado_sunat: 'emitido', cdr_estado: 'pendiente',
-        cdr_codigo: sr.codigo, cdr_mensaje: sr.mensaje || 'Pendiente de respuesta de SUNAT',
-        cdr_path: sr.cdr_path, hash_cpe: sr.hash,
-        sunat_response: JSON.stringify(rawSend), enviado_at: ahora, aceptado_at: null
-      });
-      return res.json({
-        ok: true, estado: 'pendiente', numero: numCompleto,
-        msg: sr.mensaje || 'Enviado a SUNAT, pendiente de confirmación. Usa "Reintentar envío".'
-      });
-    }
-
-    // aceptado u observado
-    await ComprobanteModel.actualizarEnvio(comprobanteId, {
-      estado_sunat: 'aceptado',
-      cdr_estado:   sr.estado,            // 'aceptado' u 'observado'
-      cdr_codigo:   sr.codigo || '0',
-      cdr_mensaje:  sr.mensaje || 'Aceptado por SUNAT',
-      cdr_path:     sr.cdr_path, hash_cpe: sr.hash,
-      sunat_response: JSON.stringify(rawSend), enviado_at: ahora, aceptado_at: ahora
+      // ── PASO 3: SUNAT aceptó → recién ahora se revierte la venta ──
+      await aplicarAnulacion(v);
+      await AuditService.log(req,{accion:'nota_credito_emitida',modulo:'ventas',entidad:'ventas',entidad_id:id,descripcion:motivo,datos:{nota:nota.numero_full,comprobante:original.numero_full}});
+      return {
+        ok: true, estado, numero: nota.numero_full, observaciones,
+        msg: `Nota de crédito ${nota.numero_full} aceptada por SUNAT. ${original.numero_full} quedó anulado y el stock fue devuelto.`
+      };
     });
-    await getDB().query('UPDATE ventas SET estado_sunat = ? WHERE id = ?', ['aceptado', id]);
 
-    res.json({
-      ok: true, estado: sr.estado, numero: numCompleto, comprobante_id: comprobanteId,
-      observaciones: sr.observaciones,
-      msg: sr.estado === 'observado'
-        ? 'Aceptado por SUNAT con observaciones'
-        : 'Comprobante aceptado por SUNAT'
-    });
+    if (result.ocupado) return res.status(409).json({ ok: false, msg: 'Esta venta ya se está procesando. Espera unos segundos.' });
+    res.json(result);
   }),
 
   // ── REINTENTAR ENVÍO a SUNAT (para comprobantes que quedaron pendientes) ──
@@ -1050,6 +1057,7 @@ const VentaController = {
     if (!scopedVenta) return;
     const comp = await ComprobanteModel.getByVenta(ventaId);
     if (!comp) return res.json({ ok: false, msg: 'Esta venta no tiene comprobante emitido' });
+    const nota = await ComprobanteModel.getNotaCreditoByVenta(ventaId);
 
     res.json({
       ok: true,
@@ -1065,7 +1073,13 @@ const VentaController = {
       codigo:     comp.cdr_codigo,
       mensaje:    comp.cdr_mensaje,
       numero:     comp.numero_full,
-      tipo:       comp.tipo
+      tipo:       comp.tipo,
+      nota_credito: nota ? {
+        numero: nota.numero_full, cdr_estado: nota.cdr_estado, codigo: nota.cdr_codigo,
+        mensaje: nota.cdr_mensaje, motivo: nota.motivo_anula,
+        pdf_a4: nota.pdf_a4_path || null, pdf_ticket: nota.pdf_ticket_path || null,
+        xml: nota.xml_path || null, cdr: nota.cdr_path || null
+      } : null
     });
   }),
 
@@ -1075,10 +1089,11 @@ const VentaController = {
     const venta = await exigirVentaEnAlcance(req, res, id);
     if (!venta) return;
 
-    const [pagos, comp, items] = await Promise.all([
+    const [pagos, comp, items, nota] = await Promise.all([
       VentaModel.getPagos(id),
       ComprobanteModel.getByVenta(id),
-      VentaModel.getItems(id)
+      VentaModel.getItems(id),
+      ComprobanteModel.getNotaCreditoByVenta(id)
     ]);
 
     const eventos = [];
@@ -1137,10 +1152,21 @@ const VentaController = {
       });
     }
 
+    if (nota) {
+      const aceptada = ['aceptado','observado'].includes(nota.cdr_estado);
+      eventos.push({
+        icon: 'ti-receipt-refund', color: aceptada ? '#e53935' : nota.cdr_estado === 'rechazado' ? '#ff7043' : '#90a4ae',
+        titulo: aceptada ? 'Nota de crédito aceptada por SUNAT'
+          : nota.cdr_estado === 'rechazado' ? 'Nota de crédito rechazada' : 'Nota de crédito pendiente de SUNAT',
+        detalle: `${nota.numero_full} sobre ${nota.comprobante_ref || comp?.numero_full || ''}${nota.motivo_anula ? ` · Motivo: ${nota.motivo_anula}` : ''}`,
+        fecha: nota.aceptado_at || nota.enviado_at || nota.emitido_at
+      });
+    }
+
     if (venta.estado_venta === 'anulada') eventos.push({
       icon: 'ti-ban', color: '#e53935',
       titulo: 'Venta anulada', detalle: 'El stock fue devuelto al inventario',
-      fecha: venta.created_at
+      fecha: nota?.aceptado_at || venta.created_at
     });
 
     res.json({

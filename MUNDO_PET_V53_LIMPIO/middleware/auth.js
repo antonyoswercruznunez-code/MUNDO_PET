@@ -11,7 +11,9 @@ async function validateLiveUser(req) {
   if (!user) return false;
 
   const lastCheck = Number(req.session.user_checked_at || 0);
-  if (now() - lastCheck < 5 * 60 * 1000) return true;
+  // Un usuario desactivado o con la contraseña cambiada pierde el acceso en
+  // segundos, no minutos. La consulta es por clave primaria y cuesta muy poco.
+  if (now() - lastCheck < 20 * 1000) return true;
 
   const db = getDB();
   const [[row]] = await db.query(`

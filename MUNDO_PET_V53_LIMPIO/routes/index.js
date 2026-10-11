@@ -121,6 +121,7 @@ router.get('/ventas/:id/archivos', auth, requirePermission('ventas.ver'), Venta.
 router.patch('/ventas/:id/anular', auth, requirePermission('ventas.anular'), Venta.anular);
 router.put('/ventas/:id/cliente', auth, requirePermission('ventas.crear'), Venta.actualizarCliente);
 router.post('/ventas/:id/emitir', auth, requirePermission('ventas.emitir'), Venta.emitir);
+router.post('/ventas/:id/nota-credito', auth, requirePermission('ventas.anular'), requirePermission('ventas.emitir'), Venta.notaCredito);
 router.post('/ventas/:id/reintentar-envio', auth, requirePermission('ventas.emitir'), Venta.reintentarEnvio);
 router.post('/ventas/:id/enviar-correo', auth, requirePermission('ventas.emitir'), Venta.enviarCorreo);
 router.get('/ventas/:id/pdf', auth, requirePermission('ventas.ver'), Pdf.ventaPDF);

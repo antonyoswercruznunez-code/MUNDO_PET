@@ -718,7 +718,9 @@ const ReporteModel = {
   comprobantesResumen: async (sid, desde, hasta) => {
     const db=getDB();
     const base=` FROM comprobantes c JOIN ventas v ON v.id=c.venta_id WHERE 1=1 ${sid?`AND v.sucursal_id=${Number(sid)}`:''} ${fechaSQL(desde,hasta,'c.emitido_at')}`;
-    const [[kpi]]=await db.query(`SELECT COUNT(*) emitidos,COALESCE(SUM(c.total),0) monto_emitido,
+    // Una nota de crédito aceptada resta lo que anuló; una rechazada no cuenta.
+    const [[kpi]]=await db.query(`SELECT COUNT(*) emitidos,
+      COALESCE(SUM(CASE WHEN c.tipo='nota_credito' THEN IF(c.estado_sunat='aceptado',-c.total,0) ELSE c.total END),0) monto_emitido,
       SUM(c.estado_sunat='aceptado') aceptados,SUM(c.estado_sunat='observado') observados,
       SUM(c.estado_sunat='pendiente') pendientes,SUM(c.estado_sunat='rechazado') rechazados ${base}`);
     const [porEstado]=await db.query(`SELECT c.estado_sunat estado,COUNT(*) cantidad,COALESCE(SUM(c.total),0) total ${base} GROUP BY c.estado_sunat ORDER BY cantidad DESC`);

@@ -395,7 +395,33 @@ window.init_ventas = async function () {
               </button>`;
           }
 
+          // Comprobante aceptado → solo se anula con nota de crédito
+          if (aceptadoS && esAdmin) {
+            acciones += `
+              <button class="btn btn-danger btn-xs" onclick="_vNotaCredito(${v.id},'${v.numero}')"
+                      title="Anular con nota de crédito">
+                <i class="ti ti-receipt-refund"></i>
+              </button>`;
+          }
+
           // Historial: siempre disponible
+          acciones += `
+            <button class="btn btn-xs" onclick="_vHistorial(${v.id})"
+                    title="Historial de la venta"
+                    style="background:rgba(123,31,162,.15);color:#b388ff;border:none">
+              <i class="ti ti-history"></i>
+            </button>`;
+        } else {
+          // Anulada: se conservan la nota de crédito (hay que entregarla al
+          // cliente) y el historial; el resto de acciones ya no aplica.
+          if (emitido) {
+            acciones += `
+              <button class="btn btn-xs" onclick="_vArchivosSunat(${v.id})"
+                      title="Comprobante y nota de crédito"
+                      style="background:rgba(0,200,83,.15);color:var(--success);border:none">
+                <i class="ti ti-folder"></i>
+              </button>`;
+          }
           acciones += `
             <button class="btn btn-xs" onclick="_vHistorial(${v.id})"
                     title="Historial de la venta"
@@ -1809,6 +1835,15 @@ ${venta.observacion ? `<div style="border:1px solid #ddd;border-radius:6px;paddi
       pendiente: { cls:'badge-warning', txt:'⏳ PENDIENTE DE SUNAT' }
     }[ce] || { cls:'badge-muted', txt:(res.estado||'').toUpperCase() };
 
+    const nc = res.nota_credito;
+    const ncAceptada = !!nc && ['aceptado','observado'].includes(nc.cdr_estado);
+    const ncUI = !nc ? null
+      : ncAceptada ? { cls:'badge-danger', txt:'COMPROBANTE ANULADO' }
+      : nc.cdr_estado === 'rechazado' ? { cls:'badge-warning', txt:'NOTA RECHAZADA' }
+      : { cls:'badge-warning', txt:'NOTA PENDIENTE DE SUNAT' };
+    const puedeAnular = ['aceptado','observado'].includes(ce) && !ncAceptada;
+    const escHtml = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
     const fila = (url, icon, color, txt, sub) => url
       ? `<button class="sunat-file-btn" onclick="window.open('${url}','_blank')">
            <i class="ti ${icon}" style="color:${color}"></i>
@@ -1841,8 +1876,63 @@ ${venta.observacion ? `<div style="border:1px solid #ddd;border-radius:6px;paddi
                <div class="sf-txt"><div>Imprimir con código QR</div><div class="sf-sub">Abre el visor del comprobante</div></div>
                <i class="ti ti-chevron-right" style="color:var(--texto-muted);font-size:15px"></i>
              </button>` : ''}
-      </div>`;
+      </div>
+      ${nc ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--borde,rgba(148,163,184,.35))">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-weight:700;font-size:13px"><i class="ti ti-receipt-refund" style="color:#e53935"></i> Nota de crédito ${nc.numero}</div>
+          <span class="badge ${ncUI.cls}" style="font-size:10px">${ncUI.txt}</span>
+        </div>
+        ${nc.motivo ? `<div style="font-size:11px;color:var(--texto-muted);margin-bottom:4px">Motivo: ${escHtml(nc.motivo)}</div>` : ''}
+        ${nc.cdr_estado === 'rechazado' && nc.mensaje ? `<div style="font-size:11px;color:#ff6b6b;margin-bottom:8px">${escHtml(nc.mensaje)}</div>` : ''}
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${fila(nc.pdf_a4,     'ti-file-type-pdf', '#e53935',        'Nota de crédito PDF A4', 'Entrégala al cliente')}
+          ${fila(nc.pdf_ticket, 'ti-receipt',       '#e53935',        'Nota de crédito Ticket', 'Impresora térmica 80mm')}
+          ${fila(nc.xml,        'ti-file-code',     'var(--info)',    'XML firmado de la nota', 'Documento electrónico oficial')}
+          ${fila(nc.cdr,        'ti-certificate',   'var(--success)', 'CDR de la nota',         'Constancia de SUNAT')}
+        </div>
+      </div>` : ''}
+      ${puedeAnular ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--borde,rgba(148,163,184,.35));text-align:center">
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('modal-emitir').classList.remove('open');_vNotaCredito(${id},'${res.numero || ''}')">
+          <i class="ti ti-receipt-refund"></i> ${nc ? 'Reintentar anulación con nota de crédito' : 'Anular con nota de crédito'}
+        </button>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:6px">Un comprobante aceptado por SUNAT solo se deja sin efecto con una nota de crédito.</div>
+      </div>` : ''}`;
     document.getElementById('modal-emitir').classList.add('open');
+  };
+
+  // ── ANULAR CON NOTA DE CRÉDITO ────────────────────────────────────────
+  window._vNotaCredito = async function(id, numero) {
+    const conf = await Swal.fire({
+      title: `Anular ${numero}`,
+      html: `<div style="font-size:13px;color:var(--texto-muted);text-align:left;line-height:1.5">
+               Se emitirá una <b>nota de crédito</b> a SUNAT por el total del comprobante.
+               Cuando SUNAT la acepte, la venta quedará anulada, el stock volverá al inventario
+               y el efectivo saldrá de la caja abierta. <b>No se puede deshacer.</b>
+             </div>`,
+      input: 'textarea',
+      inputLabel: 'Motivo de la anulación',
+      inputPlaceholder: 'Ej. El cliente devolvió el pedido',
+      inputAttributes: { maxlength: 200 },
+      inputValidator: value => String(value || '').trim().length < 5 ? 'Escribe el motivo (mínimo 5 caracteres)' : undefined,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Emitir nota de crédito', cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#e53935', background: '#1a1a2e', color: '#e0e0e0',
+      showLoaderOnConfirm: true, allowOutsideClick: () => !Swal.isLoading(),
+      preConfirm: motivo => Http.post(`/ventas/${id}/nota-credito`, { motivo: String(motivo).trim() })
+    });
+    if (!conf.isConfirmed) return;
+    const res = conf.value;
+    if (!res?.ok) return alerta('error', 'No se pudo anular', res?.msg || 'Intenta nuevamente');
+    const anulado = res.estado === 'aceptado' || res.estado === 'observado';
+    await Swal.fire({
+      icon: anulado ? 'success' : res.estado === 'rechazado' ? 'error' : 'info',
+      title: anulado ? 'Comprobante anulado' : res.estado === 'rechazado' ? 'SUNAT rechazó la nota' : 'Pendiente de SUNAT',
+      text: res.msg || '', background: '#1a1a2e', color: '#e0e0e0', confirmButtonColor: '#159447'
+    });
+    await cargar();
+    if (anulado) _vArchivosSunat(id);
   };
 
   // ── CORREO ────────────────────────────────────────────────────────────
@@ -1871,8 +1961,8 @@ ${venta.observacion ? `<div style="border:1px solid #ddd;border-radius:6px;paddi
       const arch = await Http.get(`/ventas/${id}/archivos`);
       const a = arch?.archivos || {};
       if (a.pdf_a4)      enlaces += `\n\n📄 PDF:\n${a.pdf_a4}`;
-      if (a.xml_firmado) enlaces += `\n\n📋 XML:\n${a.xml_firmado}`;
-      if (a.cdr_path)    enlaces += `\n\n✅ CDR:\n${a.cdr_path}`;
+      if (a.xml) enlaces += `\n\n📋 XML:\n${a.xml}`;
+      if (a.cdr) enlaces += `\n\n✅ CDR:\n${a.cdr}`;
     } else {
       // Nota de venta → generamos nuestro PDF y mandamos el enlace
       try {

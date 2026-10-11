@@ -9,7 +9,25 @@ const ComprobanteModel = {
              DATE_FORMAT(emitido_at,  '%Y-%m-%dT%H:%i:%s') AS emitido_at,
              DATE_FORMAT(enviado_at,  '%Y-%m-%dT%H:%i:%s') AS enviado_at,
              DATE_FORMAT(aceptado_at, '%Y-%m-%dT%H:%i:%s') AS aceptado_at
-      FROM comprobantes WHERE venta_id = ?
+      FROM comprobantes
+      WHERE venta_id = ? AND tipo IN ('boleta','factura')
+      ORDER BY id DESC LIMIT 1
+    `, [ventaId]);
+    return row || null;
+  },
+
+  // Nota de crédito más reciente de la venta (una venta puede tener el
+  // comprobante original y, si se anuló, su nota de crédito).
+  getNotaCreditoByVenta: async (ventaId) => {
+    const db = getDB();
+    const [[row]] = await db.query(`
+      SELECT *,
+             DATE_FORMAT(emitido_at,  '%Y-%m-%dT%H:%i:%s') AS emitido_at,
+             DATE_FORMAT(enviado_at,  '%Y-%m-%dT%H:%i:%s') AS enviado_at,
+             DATE_FORMAT(aceptado_at, '%Y-%m-%dT%H:%i:%s') AS aceptado_at
+      FROM comprobantes
+      WHERE venta_id = ? AND tipo = 'nota_credito'
+      ORDER BY (cdr_estado = 'rechazado'), id DESC LIMIT 1
     `, [ventaId]);
     return row || null;
   },
@@ -36,8 +54,9 @@ const ComprobanteModel = {
          op_tributaria, subtotal, igv, total,
          xml_path, xml_sin_firmar_path, pdf_a4_path, pdf_ticket_path, cdr_path,
          estado_sunat, cdr_estado, cdr_codigo, cdr_mensaje,
-         sunat_response, emitido_at, enviado_at, aceptado_at, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         sunat_response, emitido_at, enviado_at, aceptado_at, created_by,
+         motivo_anula, comprobante_ref)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `, [
       data.venta_id, data.tipo, data.serie, data.numero, data.numero_full,
       data.hash_cpe || null, 'Gravada (0101)',
@@ -52,7 +71,9 @@ const ComprobanteModel = {
       fp,                              // emitido_at (siempre)
       data.enviado_at  || null,        // enviado_at  (si ya se envió)
       data.aceptado_at || null,        // aceptado_at (si ya fue aceptado)
-      data.created_by
+      data.created_by,
+      data.motivo_anula || null,
+      data.comprobante_ref || null
     ]);
     return r.insertId;
   },
@@ -88,7 +109,10 @@ const ComprobanteModel = {
 
   // ── Borrar el comprobante de una venta (para REEMITIR uno rechazado) ──
   eliminarPorVenta: async (conn, ventaId) => {
-    await conn.query('DELETE FROM comprobantes WHERE venta_id = ?', [ventaId]);
+    await conn.query(
+      "DELETE FROM comprobantes WHERE venta_id = ? AND tipo IN ('boleta','factura') AND cdr_estado = 'rechazado'",
+      [ventaId]
+    );
   },
 
   guardarHash: async (id, hash) => {

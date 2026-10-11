@@ -1,97 +1,257 @@
 window.init_dashboard = async function initDashboard() {
   const root = document.getElementById('contenido');
-  const peruDate = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Lima',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const today = peruDate();
-  const monthStart = `${today.slice(0,7)}-01`;
-  const money = value => `S/ ${Number(value||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  const esc = value => String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
-  const palette = ['#16a34a','#0ea5e9','#7c3aed','#f59e0b','#ec4899','#0f766e','#64748b'];
+  const C = window.MPCharts;
+  const TZ = 'America/Lima';
+  const isoDate = date => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  const today = isoDate(new Date());
+  const shiftDays = (iso, days) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+  const money = value => `S/ ${Number(value || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const moneyShort = value => Math.abs(Number(value || 0)) >= 10000 ? `S/ ${C.compact(value)}` : money(value);
+  const integer = value => Number(value || 0).toLocaleString('es-PE');
+  const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const shortDate = iso => { const [, m, d] = String(iso || '').split('-'); return m ? `${Number(d)} ${MONTHS[Number(m) - 1]}` : ''; };
+  const longDate = iso => { const [y, m, d] = String(iso || '').split('-'); return m ? `${Number(d)} de ${MONTHS[Number(m) - 1]}. de ${y}` : ''; };
+  const plural = (n, one, many) => `${integer(n)} ${Number(n) === 1 ? one : many}`;
+  const PAYMENT = { efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', transferencia: 'Transferencia', izipay: 'POS Izipay', credito: 'Crédito' };
+  const CHANNEL = { presencial: 'Tienda física', web: 'Tienda web' };
+  const DOC = { boleta: ['Boleta', 'info'], factura: ['Factura', 'warn'], nota: ['Nota de venta', 'muted'], nota_venta: ['Nota de venta', 'muted'] };
 
-  if (!document.getElementById('dash-v52-style')) {
-    const style = document.createElement('style');
-    style.id = 'dash-v52-style';
-    style.textContent = `
-      .d52-filter{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;padding:16px;margin-bottom:16px}
-      .d52-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:13px;margin-bottom:16px}
-      .d52-kpi{position:relative;overflow:hidden;padding:18px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 7px 24px rgba(15,23,42,.045)}
-      .d52-kpi:after{content:'';position:absolute;right:-25px;bottom:-32px;width:105px;height:105px;border-radius:50%;background:var(--soft,#dcfce7)}
-      .d52-kpi i{position:relative;z-index:1;float:right;font-size:28px;color:var(--tone,#16a34a)}.d52-kpi small{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;color:var(--texto-muted)}
-      .d52-kpi strong{position:relative;z-index:1;display:block;font-size:24px;margin-top:8px;color:var(--texto-fuerte)}.d52-kpi p{position:relative;z-index:1;margin:5px 0 0;font-size:11px;color:var(--texto-muted)}
-      .d52-grid-main{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:14px;margin-bottom:14px}.d52-grid-eq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px}
-      .d52-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;padding:18px;box-shadow:0 7px 24px rgba(15,23,42,.04);min-width:0}.d52-card h3{display:flex;align-items:center;gap:8px;margin:0 0 5px;font-size:15px}.d52-card h3 i{font-size:20px;color:#16a34a}.d52-sub{font-size:11px;color:var(--texto-muted);margin-bottom:12px}
-      .d52-chart{position:relative;min-height:250px}.d52-chart svg{width:100%;height:280px;overflow:visible}.d52-point{cursor:pointer;transition:r .15s}.d52-point:hover{r:7}.d52-tooltip{position:fixed;z-index:9999;pointer-events:none;background:#0f172a;color:#fff;border-radius:10px;padding:9px 11px;font-size:11px;box-shadow:0 12px 30px rgba(15,23,42,.3);display:none;max-width:220px}
-      .d52-bars{display:grid;gap:10px}.d52-bar-head{display:flex;justify-content:space-between;gap:12px;font-size:12px}.d52-track{height:10px;background:#e8eef3;border-radius:999px;overflow:hidden;margin-top:5px}.d52-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#16a34a,#0ea5e9)}
-      .d52-donut-wrap{display:grid;grid-template-columns:155px 1fr;gap:18px;align-items:center}.d52-donut{width:150px;height:150px;border-radius:50%;position:relative}.d52-donut:after{content:'';position:absolute;inset:31px;border-radius:50%;background:var(--card-bg)}.d52-donut-total{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-size:12px;font-weight:900}.d52-legend{display:grid;gap:8px}.d52-legend-row{display:flex;justify-content:space-between;gap:10px;font-size:12px}.d52-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px}
-      .d52-hour-bars{height:250px;display:flex;align-items:flex-end;gap:5px;padding-top:15px}.d52-hour{flex:1;min-width:12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:5px}.d52-hour span{width:100%;max-width:28px;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,#0ea5e9,#16a34a);min-height:3px;cursor:pointer}.d52-hour small{font-size:9px;color:#64748b;transform:rotate(-45deg);height:22px}
-      .d52-table{width:100%;border-collapse:collapse;font-size:12px}.d52-table th{background:#f1f5f9;color:#475569;text-align:left;padding:10px;text-transform:uppercase;font-size:9px}.d52-table td{padding:10px;border-top:1px solid #edf2f7}.d52-alerts{display:grid;gap:9px}.d52-alert{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;cursor:pointer}.d52-alert i{font-size:20px;color:#f59e0b}.d52-alert b{display:block;font-size:12px}.d52-alert small{color:#64748b}
-      .d52-shortcuts{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px}.d52-shortcuts button{flex:1;min-width:145px;border:1px solid var(--card-border);background:var(--card-bg);border-radius:12px;padding:12px;font-weight:800;color:var(--texto-fuerte);transition:.2s}.d52-shortcuts button:hover{transform:translateY(-2px);border-color:#16a34a}.d52-shortcuts i{color:#16a34a;margin-right:6px}
-      @media(max-width:980px){.d52-grid-main,.d52-grid-eq{grid-template-columns:1fr}.d52-filter{grid-template-columns:1fr 1fr}.d52-donut-wrap{grid-template-columns:1fr;justify-items:center}.d52-legend{width:100%}}@media(max-width:560px){.d52-filter{grid-template-columns:1fr}.d52-kpis{grid-template-columns:1fr 1fr}.d52-kpi strong{font-size:19px}}
-    `;
-    document.head.appendChild(style);
-  }
+  const PRESETS = [
+    { id: 'hoy', label: 'Hoy', range: () => [today, today] },
+    { id: '7d', label: '7 días', range: () => [shiftDays(today, -6), today] },
+    { id: '30d', label: '30 días', range: () => [shiftDays(today, -29), today] },
+    { id: 'mes', label: 'Este mes', range: () => [`${today.slice(0, 7)}-01`, today] }
+  ];
+  let [from, to] = PRESETS[3].range();
 
   root.innerHTML = `
-    <div class="page-header"><div class="page-header-left"><h2><i class="ti ti-layout-dashboard"></i> Dashboard ejecutivo</h2><p>Ventas, operaciones, inventario, canales y alertas con datos reales del sistema.</p></div></div>
-    <div class="card d52-filter"><div class="form-group"><label class="form-label">Desde</label><input id="dash-desde" class="form-control" type="date" value="${monthStart}" max="${today}"></div><div class="form-group"><label class="form-label">Hasta</label><input id="dash-hasta" class="form-control" type="date" value="${today}" max="${today}"></div><div class="form-group" id="dash-sucursal-wrap"><label class="form-label">Sucursal</label><select id="dash-sucursal" class="form-control"><option value="">Todas</option></select></div><button id="dash-aplicar" class="btn btn-primary"><i class="ti ti-filter"></i> Aplicar</button></div>
-    <div class="d52-shortcuts"><button onclick="Router.navegar('ventas')"><i class="ti ti-shopping-cart-plus"></i>Nueva venta</button><button onclick="Router.navegar('pagos')"><i class="ti ti-credit-card"></i>Pagos web</button><button onclick="Router.navegar('inventario')"><i class="ti ti-package"></i>Inventario</button><button onclick="Router.navegar('logistica')"><i class="ti ti-truck-delivery"></i>Distribución</button><button onclick="Router.navegar('rentabilidad')"><i class="ti ti-chart-pie-2"></i>Rentabilidad</button></div>
-    <div id="dash-body"><div class="loading-center"><div class="spinner spinner-lg"></div></div></div><div id="d52-tooltip" class="d52-tooltip"></div>`;
+    <div class="dx">
+      <div class="dx-head">
+        <div><h2>Resumen del negocio</h2><p id="dx-period"></p></div>
+        <div class="dx-filters">
+          <div class="dx-presets" role="group" aria-label="Periodo">${PRESETS.map(p => `<button type="button" data-preset="${p.id}">${p.label}</button>`).join('')}</div>
+          <label class="dx-range" title="Rango personalizado"><i class="ti ti-calendar"></i><input id="dx-from" type="date" max="${today}" aria-label="Desde"><span>a</span><input id="dx-to" type="date" max="${today}" aria-label="Hasta"></label>
+          <select id="dx-branch" class="dx-select" aria-label="Sucursal" hidden><option value="">Todas las sucursales</option></select>
+        </div>
+      </div>
+      <div id="dx-body" class="dx-body"><div class="loading-center"><div class="spinner spinner-lg"></div></div></div>
+    </div>`;
 
-  if (!window._esGlobal) document.getElementById('dash-sucursal-wrap').style.display='none';
-  else {
+  const body = document.getElementById('dx-body');
+  const fromInput = document.getElementById('dx-from');
+  const toInput = document.getElementById('dx-to');
+  const branchSelect = document.getElementById('dx-branch');
+
+  if (window._esGlobal) {
     const branches = await Http.get('/sucursales');
-    if (branches?.ok) document.getElementById('dash-sucursal').innerHTML='<option value="">Todas</option>'+branches.sucursales.map(branch=>`<option value="${branch.id}">${esc(branch.nombre)}</option>`).join('');
+    if (branches?.ok && branches.sucursales?.length) {
+      branchSelect.innerHTML = '<option value="">Todas las sucursales</option>' + branches.sucursales.map(b => `<option value="${Number(b.id)}">${esc(b.nombre)}</option>`).join('');
+      branchSelect.hidden = false;
+    }
   }
 
-  const kpi = (label,value,detail,icon,tone='#16a34a',soft='#dcfce7') => `<article class="d52-kpi" style="--tone:${tone};--soft:${soft}"><i class="ti ${icon}"></i><small>${esc(label)}</small><strong>${value}</strong><p>${detail}</p></article>`;
-  function empty(text){return `<div class="empty-state"><i class="ti ti-chart-off"></i><p>${esc(text)}</p></div>`;}
-  function bars(rows,labelKey,valueKey,formatter=money){
-    if(!rows?.length)return empty('Sin datos en el periodo');
-    const max=Math.max(1,...rows.map(row=>Number(row[valueKey]||0)));
-    return `<div class="d52-bars">${rows.slice(0,10).map(row=>`<div><div class="d52-bar-head"><b>${esc(row[labelKey]||'—')}</b><span>${formatter(row[valueKey],row)}</span></div><div class="d52-track"><div class="d52-fill" style="width:${Math.max(2,Number(row[valueKey]||0)/max*100)}%"></div></div></div>`).join('')}</div>`;
-  }
-  function lineChart(rows){
-    if(!rows?.length)return empty('Sin ventas en el periodo');
-    const width=820,height=290,left=62,right=20,top=25,bottom=44;
-    const values=rows.map(row=>Number(row.total||0)); const max=Math.max(1,...values); const min=0;
-    const x=index=>left+index*(width-left-right)/Math.max(1,rows.length-1); const y=value=>top+(max-value)*(height-top-bottom)/Math.max(1,max-min);
-    const points=rows.map((row,index)=>`${x(index)},${y(Number(row.total||0))}`).join(' ');
-    const area=`${left},${height-bottom} ${points} ${width-right},${height-bottom}`;
-    const grid=[0,.25,.5,.75,1].map(f=>{const value=max*(1-f),yy=y(value);return `<line x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}" stroke="#e2e8f0"/><text x="${left-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="#64748b">${money(value).replace('S/ ','')}</text>`}).join('');
-    const step=Math.max(1,Math.ceil(rows.length/8));
-    return `<div class="d52-chart"><svg viewBox="0 0 ${width} ${height}"><defs><linearGradient id="d52-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16a34a" stop-opacity=".34"/><stop offset="1" stop-color="#16a34a" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#d52-area)"/><polyline points="${points}" fill="none" stroke="#16a34a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${rows.map((row,index)=>`<circle class="d52-point" cx="${x(index)}" cy="${y(Number(row.total||0))}" r="4.5" fill="#0ea5e9" data-tip="${esc(`${row.fecha} · ${money(row.total)} · ${Number(row.n||0)} venta(s)`) }"></circle>${index%step===0||index===rows.length-1?`<text x="${x(index)}" y="${height-14}" text-anchor="middle" font-size="9" fill="#64748b">${esc(String(row.fecha||'').slice(5))}</text>`:''}`).join('')}</svg></div>`;
-  }
-  function donut(rows,labelKey,valueKey){
-    const total=(rows||[]).reduce((sum,row)=>sum+Number(row[valueKey]||0),0);if(!total)return empty('Sin información');
-    let acc=0;const segments=rows.map((row,index)=>{const start=acc/total*360;acc+=Number(row[valueKey]||0);return `${palette[index%palette.length]} ${start}deg ${acc/total*360}deg`;});
-    return `<div class="d52-donut-wrap"><div class="d52-donut" style="background:conic-gradient(${segments.join(',')})"><div class="d52-donut-total">${money(total)}</div></div><div class="d52-legend">${rows.map((row,index)=>`<div class="d52-legend-row"><span><i class="d52-dot" style="background:${palette[index%palette.length]}"></i>${esc(row[labelKey]||'Otro')}</span><b>${money(row[valueKey])}</b></div>`).join('')}</div></div>`;
-  }
-  function hourly(rows){
-    const map=new Map((rows||[]).map(row=>[Number(row.hora),row]));const data=Array.from({length:24},(_,hour)=>map.get(hour)||{hora:hour,n:0,total:0});const max=Math.max(1,...data.map(row=>Number(row.total||0)));
-    return `<div class="d52-hour-bars">${data.map(row=>`<div class="d52-hour"><span style="height:${Math.max(3,Number(row.total||0)/max*190)}px" data-tip="${String(row.hora).padStart(2,'0')}:00 · ${money(row.total)} · ${Number(row.n||0)} venta(s)"></span><small>${String(row.hora).padStart(2,'0')}</small></div>`).join('')}</div>`;
-  }
-  function bindTips(){
-    const tip=document.getElementById('d52-tooltip');
-    document.querySelectorAll('[data-tip]').forEach(node=>{node.onmousemove=event=>{tip.innerHTML=esc(node.dataset.tip);tip.style.display='block';tip.style.left=`${event.clientX+14}px`;tip.style.top=`${event.clientY+14}px`;};node.onmouseleave=()=>tip.style.display='none';});
+  function syncControls() {
+    fromInput.value = from; toInput.value = to; fromInput.max = to; toInput.min = from;
+    const active = PRESETS.find(p => { const [a, b] = p.range(); return a === from && b === to; });
+    document.querySelectorAll('[data-preset]').forEach(button => button.classList.toggle('on', button.dataset.preset === active?.id));
   }
 
-  async function load(){
-    const from=document.getElementById('dash-desde').value,to=document.getElementById('dash-hasta').value;
-    if(!from||!to||from>to||to>today)return Swal.fire('Fechas inválidas','Selecciona un rango válido que no supere la fecha actual.','warning');
-    const query=new URLSearchParams({desde:from,hasta:to});const branch=document.getElementById('dash-sucursal')?.value;if(branch)query.set('sucursal_id',branch);
-    const body=document.getElementById('dash-body');body.innerHTML='<div class="loading-center"><div class="spinner spinner-lg"></div></div>';
-    const data=await Http.get(`/dashboard/resumen?${query}`);if(!data?.ok){body.innerHTML=empty(data?.msg||'No se pudo cargar el dashboard');return;}
-    const k=data.kpis||{},profit=data.rentabilidad,trend=Number(k.variacionVentas||0);
-    const alerts=[];if(k.stockBajo)alerts.push(['Stock crítico',`${k.stockBajo} producto(s) requieren reposición`,'inventario']);if(k.pagosPendientes)alerts.push(['Pagos web',`${k.pagosPendientes} pago(s) requieren revisión`,'pagos']);if(k.comprobantesRevisar)alerts.push(['Comprobantes',`${k.comprobantesRevisar} comprobante(s) por revisar`,'comprobantes']);if(k.cajasAbiertas)alerts.push(['Cajas abiertas',`${k.cajasAbiertas} caja(s) permanecen abiertas`,'cajas']);if(k.incidenciasEntrega)alerts.push(['Incidencias',`${k.incidenciasEntrega} entrega(s) necesitan seguimiento`,'logistica']);
-    body.innerHTML=`
-      <div class="d52-kpis">${kpi('Ventas del periodo',money(k.ventasMesMonto),`${k.ventasMesCount||0} operaciones · ${trend>=0?'+':''}${trend.toFixed(1)}% vs. periodo anterior`,'ti-cash','#16a34a','#dcfce7')}${kpi('Ticket promedio',money(k.ticketPromedio),`${k.ventasMesCount||0} ventas registradas`,'ti-receipt','#0ea5e9','#e0f2fe')}${kpi('Ventas de hoy',money(k.ventasHoyMonto),`${k.ventasHoyCount||0} operaciones`,'ti-calendar-dollar','#7c3aed','#ede9fe')}${kpi('Clientes activos',Number(k.clientes||0).toLocaleString('es-PE'),'Base comercial disponible','ti-users','#0891b2','#cffafe')}${kpi('Stock crítico',Number(k.stockBajo||0).toLocaleString('es-PE'),`${k.productos||0} productos activos`,'ti-package-off','#dc2626','#fee2e2')}${kpi('Entregas activas',Number(k.entregasActivas||0).toLocaleString('es-PE'),`${k.incidenciasEntrega||0} incidencia(s)`,'ti-truck-delivery','#f59e0b','#fef3c7')}${profit?kpi('Margen bruto',money(profit.margen_bruto),`${Number(profit.margen_pct||0).toFixed(1)}% del ingreso`,'ti-chart-line','#16a34a','#dcfce7'):''}</div>
-      <div class="d52-grid-main"><section class="d52-card"><h3><i class="ti ti-chart-area-line"></i>Evolución de ventas</h3><div class="d52-sub">Monto diario. Pasa el mouse por cada punto para ver fecha, importe y número de ventas.</div>${lineChart(data.serie14)}</section><section class="d52-card"><h3><i class="ti ti-bell-ringing"></i>Alertas operativas</h3><div class="d52-sub">Pendientes que requieren una acción.</div><div class="d52-alerts">${alerts.length?alerts.map(item=>`<div class="d52-alert" onclick="Router.navegar('${item[2]}')"><i class="ti ti-alert-triangle"></i><div><b>${esc(item[0])}</b><small>${esc(item[1])}</small></div></div>`).join(''):empty('No existen alertas críticas')}</div></section></div>
-      <div class="d52-grid-eq"><section class="d52-card"><h3><i class="ti ti-clock-hour-4"></i>Ventas por hora</h3><div class="d52-sub">Horas con mayor actividad comercial.</div>${hourly(data.horas)}</section><section class="d52-card"><h3><i class="ti ti-credit-card"></i>Ingresos por método de pago</h3><div class="d52-sub">Distribución real del monto cobrado.</div>${donut(data.metodos,'m','s')}</section></div>
-      <div class="d52-grid-eq"><section class="d52-card"><h3><i class="ti ti-device-desktop-analytics"></i>Canal de venta</h3><div class="d52-sub">Comparación entre atención presencial y ecommerce.</div>${donut(data.canales,'canal','total')}</section><section class="d52-card"><h3><i class="ti ti-trophy"></i>Productos con mayor movimiento</h3><div class="d52-sub">Unidades vendidas en el periodo.</div>${bars(data.topProductos,'nombre','cant',(value)=>`${Number(value||0)} uds.`)}</section></div>
-      ${data.porSucursal?.length?`<section class="d52-card" style="margin-bottom:14px"><h3><i class="ti ti-building-store"></i>Rendimiento por sucursal</h3><div class="d52-sub">Ventas acumuladas por sede.</div>${bars(data.porSucursal,'nombre','total')}</section>`:''}
-      <div class="d52-grid-eq"><section class="d52-card"><h3><i class="ti ti-package"></i>Productos por reponer</h3><div class="d52-sub">Stock actual frente al mínimo.</div>${data.stockBajoLista?.length?`<table class="d52-table"><thead><tr><th>Producto</th><th>Sucursal</th><th>Actual</th><th>Mínimo</th></tr></thead><tbody>${data.stockBajoLista.map(row=>`<tr><td><b>${esc(row.nombre)}</b></td><td>${esc(row.sucursal_nombre||'—')}</td><td style="color:#dc2626;font-weight:900">${Number(row.stock_actual||0)}</td><td>${Number(row.stock_minimo||0)}</td></tr>`).join('')}</tbody></table>`:empty('No hay productos críticos')}</section><section class="d52-card"><h3><i class="ti ti-history"></i>Últimas ventas</h3><div class="d52-sub">Movimientos más recientes del sistema.</div>${data.ultimasVentas?.length?`<table class="d52-table"><thead><tr><th>Documento</th><th>Cliente</th><th>Sucursal</th><th>Total</th></tr></thead><tbody>${data.ultimasVentas.map(row=>`<tr><td><b>${esc(row.numero)}</b></td><td>${esc(row.cliente_nombre)}</td><td>${esc(row.sucursal_nombre||'—')}</td><td><b>${money(row.total)}</b></td></tr>`).join('')}</tbody></table>`:empty('Sin ventas recientes')}</section></div>`;
-    bindTips();
+  const delta = value => {
+    const n = Number(value || 0);
+    const cls = n > 0.05 ? 'up' : n < -0.05 ? 'down' : 'flat';
+    const icon = cls === 'up' ? 'ti-arrow-up-right' : cls === 'down' ? 'ti-arrow-down-right' : 'ti-minus';
+    return `<span class="dx-delta ${cls}"><i class="ti ${icon}"></i>${n > 0 ? '+' : ''}${n.toFixed(1)}%</span>`;
+  };
+
+  const kpi = ({ label, value, foot, icon, tone, go, spark = '', meter = null, i }) => `
+    <button type="button" class="dx-kpi" style="--i:${i};${tone ? `--tone:var(--mp-${tone});--tone-bg:var(--mp-${tone}-bg)` : ''}" onclick="Router.navegar('${go}')">
+      <span class="dx-kpi-top"><span class="dx-kpi-label">${esc(label)}</span><span class="dx-kpi-icon"><i class="ti ${icon}"></i></span></span>
+      <span class="dx-kpi-value">${value}</span>
+      ${meter !== null ? `<span class="dx-meter"><i data-w="${Math.max(0, Math.min(100, meter)).toFixed(1)}"></i></span>` : ''}
+      <span class="dx-kpi-foot"><small>${foot}</small>${spark}</span>
+    </button>`;
+
+  const card = (i, title, subtitle, content, action = '') => `
+    <section class="dx-card" style="--i:${i}">
+      <header class="dx-card-head"><div><h3>${esc(title)}</h3>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${action}</header>
+      ${content}
+    </section>`;
+  const link = (text, page) => `<button type="button" class="dx-link" onclick="Router.navegar('${page}')">${esc(text)}<i class="ti ti-chevron-right"></i></button>`;
+
+  function todoList(k) {
+    const items = [];
+    if (k.pagosPendientes) items.push(['ti-credit-card', 'warn', 'Pagos web por verificar', plural(k.pagosPendientes, 'pago espera', 'pagos esperan') + ' revisión', 'pagos']);
+    if (k.stockBajo) items.push(['ti-package-off', 'bad', 'Stock por reponer', plural(k.stockBajo, 'producto está', 'productos están') + ' bajo el mínimo', 'inventario']);
+    if (k.comprobantesRevisar) items.push(['ti-file-alert', 'bad', 'Comprobantes por revisar', plural(k.comprobantesRevisar, 'comprobante', 'comprobantes') + ' sin aceptar en SUNAT', 'comprobantes']);
+    if (k.incidenciasEntrega) items.push(['ti-truck-off', 'bad', 'Entregas con incidencia', plural(k.incidenciasEntrega, 'entrega necesita', 'entregas necesitan') + ' seguimiento', 'recojo']);
+    if (k.cajasAbiertas) items.push(['ti-cash', 'info', 'Cajas abiertas', plural(k.cajasAbiertas, 'caja sigue', 'cajas siguen') + ' en turno', 'cajas']);
+    if (!items.length) return `<div class="dx-allgood"><i class="ti ti-check"></i><span>Todo al día.<br>No hay pendientes que atender.</span></div>`;
+    return `<div class="dx-todo">${items.map(([icon, tone, title, text, page]) => `
+      <button type="button" onclick="Router.navegar('${page}')">
+        <span class="dx-todo-icon" style="--tone:var(--mp-${tone});--tone-bg:var(--mp-${tone}-bg)"><i class="ti ${icon}"></i></span>
+        <span><b>${esc(title)}</b><small>${esc(text)}</small></span><i class="ti ti-chevron-right"></i>
+      </button>`).join('')}</div>`;
   }
 
-  document.getElementById('dash-aplicar').onclick=load;
+  function channelSplit(rows) {
+    const data = (rows || []).map(r => ({ label: CHANNEL[r.canal] || r.canal, value: Number(r.total || 0), n: Number(r.n || 0) })).filter(r => r.value > 0);
+    const total = data.reduce((sum, r) => sum + r.value, 0);
+    if (!total) return '<div class="mpc-empty"><i class="ti ti-chart-dots-3"></i><span>Sin ventas en el periodo</span></div>';
+    return `
+      <div class="dx-split-bar" role="img" aria-label="${esc(data.map(r => `${r.label} ${(r.value / total * 100).toFixed(0)}%`).join(', '))}">${data.map((r, i) => `<i data-w="${(r.value / total * 100).toFixed(2)}" style="background:${C.seriesColor(i)}"></i>`).join('')}</div>
+      <div class="dx-split-list">${data.map((r, i) => `
+        <div class="dx-split-item"><span><i style="background:${C.seriesColor(i)}"></i>${esc(r.label)}</span><b>${money(r.value)}</b><small>${(r.value / total * 100).toFixed(1)}% · ${plural(r.n, 'venta', 'ventas')}</small></div>`).join('')}</div>`;
+  }
+
+  function stockTable(rows) {
+    if (!rows?.length) return `<div class="dx-allgood"><i class="ti ti-check"></i><span>Ningún producto está bajo su mínimo.</span></div>`;
+    return `<div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Producto</th><th>Sucursal</th><th class="num">Stock / mínimo</th></tr></thead><tbody>${rows.map(r => {
+      const actual = Number(r.stock_actual || 0), minimum = Number(r.stock_minimo || 0);
+      return `<tr><td class="strong">${esc(r.nombre)}</td><td class="muted">${esc(r.sucursal_nombre || '—')}</td>
+        <td class="num"><span class="mp-stockbar"><i style="--w:${minimum > 0 ? Math.min(100, actual / minimum * 100).toFixed(0) : 0}%"></i><span><b class="strong">${integer(actual)}</b> / ${integer(minimum)}</span></span></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+
+  function salesTable(rows) {
+    if (!rows?.length) return '<div class="mpc-empty"><i class="ti ti-receipt-off"></i><span>Aún no hay ventas registradas</span></div>';
+    return `<div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Documento</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th></tr></thead><tbody>${rows.map(r => {
+      const [docLabel, docTone] = DOC[r.tipo_comprobante] || ['Venta', 'muted'];
+      const [date, time] = String(r.created_at || '').split('T');
+      return `<tr>
+        <td><div class="cell-main"><span class="strong">${esc(r.numero)}</span><span><span class="mp-chip ${docTone}">${docLabel}</span></span></div></td>
+        <td><div class="cell-main"><span>${esc(r.cliente_nombre || 'Cliente general')}</span><span class="muted">${esc(r.sucursal_nombre || '')}</span></div></td>
+        <td class="muted">${date === today ? 'Hoy' : esc(shortDate(date))}${time ? ` · ${esc(time.slice(0, 5))}` : ''}</td>
+        <td class="num strong">${money(r.total)}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+
+  let requestId = 0;
+  async function load() {
+    syncControls();
+    const current = ++requestId;
+    const query = new URLSearchParams({ desde: from, hasta: to });
+    if (branchSelect.value) query.set('sucursal_id', branchSelect.value);
+    body.classList.add('loading');           // se conserva el render anterior, atenuado
+    const data = await Http.get(`/dashboard/resumen?${query}`);
+    if (current !== requestId || !document.body.contains(body)) return;
+    body.classList.remove('loading');
+    if (!data?.ok) {
+      body.innerHTML = `<div class="dx-card"><div class="mpc-empty"><i class="ti ti-cloud-off"></i><span>${esc(data?.msg || 'No se pudo cargar el resumen')}</span></div></div>`;
+      return;
+    }
+
+    const k = data.kpis || {};
+    const profit = data.rentabilidad;
+    const series = data.serie14 || [];
+    const period = data.periodo || {};
+    const sameDay = from === to;
+    document.getElementById('dx-period').textContent = sameDay ? longDate(from) : `Del ${longDate(from)} al ${longDate(to)}`;
+
+    const daysWithSales = series.filter(r => Number(r.n) > 0);
+    const dailyTickets = daysWithSales.map(r => Number(r.total) / Number(r.n));
+    const recentTotals = series.slice(-14).map(r => Number(r.total || 0));
+    const bestDay = daysWithSales.reduce((best, r) => (!best || Number(r.total) > Number(best.total) ? r : best), null);
+
+    const kpis = [
+      { label: 'Ventas de hoy', value: money(k.ventasHoyMonto), foot: plural(k.ventasHoyCount || 0, 'operación', 'operaciones'), icon: 'ti-calendar-dollar', go: 'ventas', spark: C.spark(recentTotals) },
+      { label: 'Ticket promedio', value: money(k.ticketPromedio), foot: 'por venta en el periodo', icon: 'ti-receipt-2', tone: 'info', go: 'reportes', spark: C.spark(dailyTickets.slice(-14)) }
+    ];
+    if (profit) kpis.push({ label: 'Margen bruto', value: money(profit.margen_bruto), foot: `${Number(profit.margen_pct || 0).toFixed(1)}% de lo vendido`, icon: 'ti-chart-pie-2', go: 'rentabilidad', meter: Number(profit.margen_pct || 0) });
+    kpis.push(
+      { label: 'Entregas en curso', value: integer(k.entregasActivas), foot: Number(k.incidenciasEntrega) ? plural(k.incidenciasEntrega, 'incidencia', 'incidencias') : 'sin incidencias', icon: 'ti-truck-delivery', tone: Number(k.incidenciasEntrega) ? 'bad' : 'info', go: 'recojo' },
+      { label: 'Stock bajo mínimo', value: integer(k.stockBajo), foot: `de ${plural(k.productos || 0, 'producto activo', 'productos activos')}`, icon: 'ti-package', tone: Number(k.stockBajo) ? 'bad' : 'good', go: 'inventario' },
+      { label: 'Clientes', value: integer(k.clientes), foot: 'registrados', icon: 'ti-users', tone: 'info', go: 'clientes' }
+    );
+
+    const quotes = data.cotizaciones || {}, receipts = data.comprobantes || {}, cash = data.caja || {};
+    let i = 0;
+    body.innerHTML = `
+      <div class="dx-row hero">
+        <section class="dx-card" style="--i:${i++}">
+          <div class="dx-hero-top">
+            <div>
+              <div class="dx-hero-label">Ventas del periodo</div>
+              <div class="dx-hero-value" id="dx-hero-value">${money(0)}</div>
+              <div class="dx-hero-meta">${delta(k.variacionVentas)}<span>frente al periodo anterior${period.anterior_desde ? ` (${esc(shortDate(period.anterior_desde))} – ${esc(shortDate(period.anterior_hasta))})` : ''}</span></div>
+            </div>
+            <div class="dx-hero-side">
+              <div><small>Operaciones</small><b>${integer(k.ventasMesCount)}</b></div>
+              ${bestDay && !sameDay ? `<div><small>Mejor día</small><b>${esc(shortDate(bestDay.fecha))}</b></div>` : ''}
+            </div>
+          </div>
+          <div id="dx-sales"></div>
+        </section>
+        ${card(i++, 'Por atender', 'Pendientes que necesitan una acción', todoList(k))}
+      </div>
+      <div class="dx-kpis" style="--cols:${kpis.length}">${kpis.map(item => kpi({ ...item, i: i++ })).join('')}</div>
+      <div class="dx-row wide-left">
+        ${card(i++, 'Ventas por hora', 'Importe vendido según la hora del día', '<div id="dx-hours"></div>')}
+        ${card(i++, 'Métodos de pago', 'Cómo pagaron los clientes', '<div id="dx-methods"></div>', link('Caja', 'cajas'))}
+      </div>
+      <div class="dx-row two">
+        ${card(i++, 'Productos más vendidos', 'Unidades vendidas en el periodo', '<div id="dx-top"></div>', link('Reportes', 'reportes'))}
+        ${card(i++, 'Canales de venta', 'Tienda física frente a tienda web', `${channelSplit(data.canales)}
+          <div class="dx-mini">
+            <div><small>Cotizaciones</small><b>${integer(quotes.total)}</b><span>${integer(quotes.vigentes)} vigentes</span></div>
+            <div><small>Comprobantes</small><b>${integer(receipts.total)}</b><span>${integer(receipts.aceptados)} aceptados</span></div>
+            <div><small>Turnos de caja</small><b>${integer(cash.turnos)}</b><span>${integer(cash.abiertas)} abiertos</span></div>
+          </div>`)}
+      </div>
+      ${data.porSucursal?.length > 1 ? card(i++, 'Ventas por sucursal', 'Importe acumulado de cada sede', '<div id="dx-branches"></div>') : ''}
+      <div class="dx-row two">
+        ${card(i++, 'Últimas ventas', 'Movimientos más recientes', salesTable(data.ultimasVentas), link('Ver ventas', 'ventas'))}
+        ${card(i++, 'Productos por reponer', 'Stock actual frente al mínimo definido', stockTable(data.stockBajoLista), link('Inventario', 'inventario'))}
+      </div>`;
+
+    C.countUp(document.getElementById('dx-hero-value'), k.ventasMesMonto, money);
+    C.area(document.getElementById('dx-sales'), {
+      name: 'Ventas', format: money, height: sameDay ? 200 : 270,
+      emptyText: 'Sin ventas en el periodo seleccionado',
+      rows: series.map(r => ({ label: shortDate(r.fecha), title: longDate(r.fecha), value: Number(r.total || 0), sub: plural(r.n || 0, 'venta', 'ventas') }))
+    });
+
+    const byHour = new Map((data.horas || []).map(r => [Number(r.hora), r]));
+    const hoursUsed = [...byHour.keys()];
+    const firstHour = Math.min(7, ...hoursUsed), lastHour = Math.max(21, ...hoursUsed);
+    C.columns(document.getElementById('dx-hours'), {
+      name: 'Ventas', format: money, emptyText: 'Sin ventas en el periodo seleccionado',
+      rows: Array.from({ length: lastHour - firstHour + 1 }, (_, index) => {
+        const hour = firstHour + index, row = byHour.get(hour) || {};
+        const hh = String(hour).padStart(2, '0');
+        return { label: hh, title: `${hh}:00 – ${hh}:59`, value: Number(row.total || 0), sub: plural(row.n || 0, 'venta', 'ventas') };
+      })
+    });
+    C.donut(document.getElementById('dx-methods'), {
+      format: money, centerFormat: moneyShort, centerLabel: 'Cobrado',
+      rows: (data.metodos || []).map(r => ({ label: PAYMENT[r.m] || r.m || 'Otro', value: Number(r.s || 0), sub: plural(r.n || 0, 'venta', 'ventas') }))
+    });
+    C.bars(document.getElementById('dx-top'), {
+      format: value => `${integer(value)} uds.`, emptyText: 'Sin productos vendidos en el periodo',
+      rows: (data.topProductos || []).map(r => ({ label: r.nombre, value: Number(r.cant || 0), sub: money(r.s) }))
+    });
+    const branchesHost = document.getElementById('dx-branches');
+    if (branchesHost) C.bars(branchesHost, { format: money, rows: data.porSucursal.map(r => ({ label: r.nombre, value: Number(r.total || 0), sub: plural(r.n || 0, 'venta', 'ventas') })) });
+
+    // Barras de proporción: crecen desde cero al aparecer.
+    requestAnimationFrame(() => body.querySelectorAll('[data-w]').forEach(node => node.style.setProperty('--w', `${node.dataset.w}%`)));
+  }
+
+  document.querySelectorAll('[data-preset]').forEach(button => {
+    button.onclick = () => { [from, to] = PRESETS.find(p => p.id === button.dataset.preset).range(); load(); };
+  });
+  const applyCustom = () => {
+    const a = fromInput.value, b = toInput.value;
+    if (!a || !b) return;
+    if (a > b || b > today) {
+      syncControls();
+      return Swal.fire({ icon: 'warning', title: 'Rango de fechas inválido', text: 'La fecha inicial debe ser anterior a la final y ninguna puede ser futura.' });
+    }
+    from = a; to = b; load();
+  };
+  fromInput.onchange = applyCustom;
+  toInput.onchange = applyCustom;
+  branchSelect.onchange = load;
+
   await load();
 };

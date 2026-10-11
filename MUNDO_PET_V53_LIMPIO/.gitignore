@@ -31,3 +31,6 @@ coverage/
 
 # Respaldos locales de la base (contienen datos reales)
 database/backup_*.sql
+
+# Capturas y registros de Playwright
+.playwright-mcp/

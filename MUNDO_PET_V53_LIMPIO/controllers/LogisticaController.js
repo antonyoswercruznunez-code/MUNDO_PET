@@ -37,6 +37,17 @@ function status(error) {
   return value >= 400 && value <= 599 ? value : 400;
 }
 
+// Los errores de negocio traen su propio texto; los de base de datos se
+// traducen para no mostrar SQL al usuario.
+function mensaje(error) {
+  if (error?.code === 'ER_DUP_ENTRY') return 'Ya existe un registro con esos datos (placa, documento o código repetido).';
+  if (error?.code || error?.sqlMessage) {
+    console.error('[LOGISTICA]', error.message);
+    return 'No se pudo completar la operación. Intenta nuevamente.';
+  }
+  return error.message;
+}
+
 const Controller = {
   resumen: wrap(async (req, res) => {
     validarFiltros(req.query.desde,req.query.hasta);
@@ -57,7 +68,7 @@ const Controller = {
       const id = await Logistica.guardarRepartidor(body, req.params.id);
       res.json({ ok: true, id, msg: 'Repartidor guardado' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -75,7 +86,7 @@ const Controller = {
       const id = await Logistica.guardarVehiculo(body, req.params.id);
       res.json({ ok: true, id, msg: 'Camión guardado' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -98,7 +109,7 @@ const Controller = {
       ensureRouteScope(data, scope);
       res.json({ ok: true, data });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -109,7 +120,7 @@ const Controller = {
       const id = await Logistica.crearRuta(body, req.session.usuario.id);
       res.status(201).json({ ok: true, id, msg: 'Ruta creada' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -126,7 +137,7 @@ const Controller = {
       await Logistica.asignarPedidos(req.params.id, req.body.items);
       res.json({ ok: true, msg: 'Pedidos asignados' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -138,7 +149,7 @@ const Controller = {
       await Logistica.cambiarEstadoRuta(req.params.id, req.body.estado, { ...req.body, usuario_id:req.session.usuario.id });
       res.json({ ok: true, msg: 'Ruta actualizada' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 
@@ -150,7 +161,7 @@ const Controller = {
       await Logistica.cambiarEstadoEntrega(req.params.id, req.params.detalleId, req.body.estado, req.body, req.session.usuario.id);
       res.json({ ok: true, msg: 'Entrega actualizada' });
     } catch (error) {
-      res.status(status(error)).json({ ok: false, msg: error.message });
+      res.status(status(error)).json({ ok: false, msg: mensaje(error) });
     }
   }),
 

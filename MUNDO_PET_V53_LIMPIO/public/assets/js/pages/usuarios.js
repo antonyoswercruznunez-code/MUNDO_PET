@@ -395,8 +395,8 @@ window.init_usuarios = async function () {
 
     if (!id) {
       const pass = document.getElementById('usr-password').value;
-      if (!pass || pass.length < 6) {
-        mostrarError('password', 'La contraseña debe tener mínimo 6 caracteres');
+      if (!pass || pass.length < 8 || !/[A-Za-z]/.test(pass) || !/\d/.test(pass)) {
+        mostrarError('password', 'Mínimo 8 caracteres, con al menos una letra y un número');
         return;
       }
       if (!RE_PASSWORD.test(pass)) {
@@ -408,10 +408,10 @@ window.init_usuarios = async function () {
       body.estado = +document.getElementById('usr-estado').value;
       const nueva = document.getElementById('usr-nueva-pass').value;
       if (nueva) {
-        if (nueva.length < 6)
+        if (nueva.length < 8 || !/[A-Za-z]/.test(nueva) || !/\d/.test(nueva))
           return Swal.fire({
             icon: 'error', title: 'Error',
-            text: 'La nueva contraseña debe tener mínimo 6 caracteres',
+            text: 'La nueva contraseña debe tener mínimo 8 caracteres, con al menos una letra y un número',
             background: '#1a1a2e', color: '#e0e0e0', confirmButtonColor: '#e53935'
           });
         if (!RE_PASSWORD.test(nueva))

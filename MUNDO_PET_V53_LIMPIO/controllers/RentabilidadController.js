@@ -56,6 +56,13 @@ module.exports = {
     const branchCaja = sucursalId ? ' AND cm.sucursal_id=?' : '';
     const branchCajaParams = sucursalId ? [sucursalId] : [];
 
+    // Ingreso real de cada línea: su subtotal menos la parte que le toca del
+    // descuento global de la venta. Sin esto, una venta con descuento
+    // aparecía ganando más de lo que realmente se cobró.
+    const incomeExpression = `(GREATEST(0,vi.subtotal) * CASE
+      WHEN COALESCE(v.subtotal,0) > 0 THEN GREATEST(0,v.subtotal-COALESCE(v.descuento,0))/v.subtotal
+      ELSE 1 END)`;
+
     const costExpression = `LEAST(
       GREATEST(0,COALESCE(vi.subtotal,vi.cantidad*vi.precio_unit,0)),
       GREATEST(0,vi.cantidad*COALESCE(NULLIF(vi.costo_unitario,0),p.precio_costo,0))
@@ -65,7 +72,7 @@ module.exports = {
       querySafe(db, `
         SELECT COUNT(DISTINCT v.id) ventas,
                COALESCE(SUM(vi.cantidad),0) unidades,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)),0) ingresos,
+               COALESCE(SUM(${incomeExpression}),0) ingresos,
                COALESCE(SUM(${costExpression}),0) costo_utilizado,
                COALESCE(SUM(GREATEST(0,vi.cantidad*COALESCE(NULLIF(vi.costo_unitario,0),p.precio_costo,0))),0) costo_declarado,
                SUM(CASE WHEN vi.cantidad*COALESCE(NULLIF(vi.costo_unitario,0),p.precio_costo,0) > GREATEST(0,vi.subtotal) THEN 1 ELSE 0 END) items_costo_inconsistente
@@ -77,9 +84,9 @@ module.exports = {
       `, [desde, hasta, ...branchVentaParams], [{ ventas:0, unidades:0, ingresos:0, costo_utilizado:0, costo_declarado:0, items_costo_inconsistente:0 }]),
       querySafe(db, `
         SELECT DATE_FORMAT(v.created_at,'%Y-%m-%d') fecha,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)),0) ingresos,
+               COALESCE(SUM(${incomeExpression}),0) ingresos,
                COALESCE(SUM(${costExpression}),0) costo,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)-${costExpression}),0) margen
+               COALESCE(SUM(${incomeExpression}-${costExpression}),0) margen
         FROM venta_items vi
         JOIN ventas v ON v.id=vi.venta_id
         LEFT JOIN productos p ON p.id=vi.producto_id
@@ -89,11 +96,11 @@ module.exports = {
       querySafe(db, `
         SELECT p.id,p.nombre,s.nombre sucursal_nombre,
                COALESCE(SUM(vi.cantidad),0) unidades,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)),0) ingresos,
+               COALESCE(SUM(${incomeExpression}),0) ingresos,
                COALESCE(SUM(${costExpression}),0) costo,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)-${costExpression}),0) margen,
-               CASE WHEN SUM(GREATEST(0,vi.subtotal))>0
-                    THEN 100*SUM(GREATEST(0,vi.subtotal)-${costExpression})/SUM(GREATEST(0,vi.subtotal)) ELSE 0 END margen_pct
+               COALESCE(SUM(${incomeExpression}-${costExpression}),0) margen,
+               CASE WHEN SUM(${incomeExpression})>0
+                    THEN 100*SUM(${incomeExpression}-${costExpression})/SUM(${incomeExpression}) ELSE 0 END margen_pct
         FROM venta_items vi JOIN ventas v ON v.id=vi.venta_id
         JOIN productos p ON p.id=vi.producto_id LEFT JOIN sucursales s ON s.id=COALESCE(vi.sucursal_id,p.sucursal_id,v.sucursal_id)
         WHERE DATE(v.created_at) BETWEEN ? AND ? AND v.estado_venta='registrada'${branchVenta}
@@ -101,9 +108,9 @@ module.exports = {
       `, [desde, hasta, ...branchVentaParams]),
       global && !sucursalId ? querySafe(db, `
         SELECT s.id,s.nombre,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)),0) ingresos,
-               COALESCE(SUM(${costExpression}),0) costo,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)-${costExpression}),0) margen
+               COALESCE(SUM(CASE WHEN v.id IS NOT NULL THEN ${incomeExpression} ELSE 0 END),0) ingresos,
+               COALESCE(SUM(CASE WHEN v.id IS NOT NULL THEN ${costExpression} ELSE 0 END),0) costo,
+               COALESCE(SUM(CASE WHEN v.id IS NOT NULL THEN ${incomeExpression}-${costExpression} ELSE 0 END),0) margen
         FROM sucursales s
         LEFT JOIN venta_items vi ON COALESCE(vi.sucursal_id,(SELECT p2.sucursal_id FROM productos p2 WHERE p2.id=vi.producto_id),NULL)=s.id
         LEFT JOIN ventas v ON v.id=vi.venta_id AND v.estado_venta='registrada' AND DATE(v.created_at) BETWEEN ? AND ?
@@ -113,15 +120,15 @@ module.exports = {
       querySafe(db, `
         SELECT CASE WHEN LOWER(COALESCE(v.canal,'')) IN ('web','ecommerce') OR v.pedido_web_id IS NOT NULL THEN 'web' ELSE 'presencial' END canal,
                COUNT(DISTINCT v.id) ventas,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)),0) ingresos,
+               COALESCE(SUM(${incomeExpression}),0) ingresos,
                COALESCE(SUM(${costExpression}),0) costo,
-               COALESCE(SUM(GREATEST(0,vi.subtotal)-${costExpression}),0) margen
+               COALESCE(SUM(${incomeExpression}-${costExpression}),0) margen
         FROM venta_items vi JOIN ventas v ON v.id=vi.venta_id LEFT JOIN productos p ON p.id=vi.producto_id
         WHERE DATE(v.created_at) BETWEEN ? AND ? AND v.estado_venta='registrada'${branchVenta}
         GROUP BY canal ORDER BY ingresos DESC
       `, [desde, hasta, ...branchVentaParams]),
       querySafe(db, `SELECT COALESCE(SUM(cm.monto),0) egresos,COUNT(*) movimientos
-        FROM caja_movimientos cm WHERE cm.tipo='egreso' AND DATE(cm.created_at) BETWEEN ? AND ?${branchCaja}`,
+        FROM caja_movimientos cm WHERE cm.tipo='egreso' AND cm.concepto NOT LIKE 'Anulación venta %' AND DATE(cm.created_at) BETWEEN ? AND ?${branchCaja}`,
         [desde, hasta, ...branchCajaParams], [{ egresos:0, movimientos:0 }]),
       querySafe(db, `
         SELECT p.id,p.nombre,p.precio_costo,p.precio_venta,p.stock_actual,s.nombre sucursal_nombre,
@@ -152,7 +159,8 @@ module.exports = {
     const summary = summaryRows[0] || {};
     const ingresos = Number(summary.ingresos || 0);
     const costo = Number(summary.costo_utilizado || 0);
-    const margen = Math.max(0, ingresos - costo);
+    // Sin tope en cero: si se vendió por debajo del costo, debe verse la pérdida.
+    const margen = ingresos - costo;
     const egresos = Number(expenses[0]?.egresos || 0);
     const resultado = margen - egresos;
     const inventario = inventoryRows[0] || {};

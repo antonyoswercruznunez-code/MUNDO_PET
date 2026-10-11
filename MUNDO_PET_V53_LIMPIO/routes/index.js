@@ -30,6 +30,7 @@ const Logistica = require('../controllers/LogisticaController');
 
 const loginLimiter = rateLimit({ windowMs: 15*60*1000, limit: 12, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos. Espera unos minutos.'} });
 const resetLimiter = rateLimit({ windowMs: 15*60*1000, limit: 6, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiadas solicitudes. Espera unos minutos.'} });
+const unlockLimiter = rateLimit({ windowMs: 10*60*1000, limit: 10, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos de desbloqueo. Espera unos minutos.'} });
 const uploadLimiter = rateLimit({ windowMs: 10*60*1000, limit: 30, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Límite de cargas alcanzado.'} });
 
 // Público y autenticación de empleados
@@ -38,7 +39,7 @@ router.post('/auth/login', loginLimiter, Auth.login);
 router.post('/auth/forgot', resetLimiter, Auth.forgot);
 router.post('/auth/reset-password', resetLimiter, Auth.resetPassword);
 router.get('/auth/session', authAllowLocked, Auth.session);
-router.post('/auth/unlock', authAllowLocked, unlock);
+router.post('/auth/unlock', unlockLimiter, authAllowLocked, unlock);
 router.post('/auth/activity', auth, activity);
 router.post('/auth/logout', authAllowLocked, Auth.logout);
 

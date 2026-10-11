@@ -94,7 +94,8 @@ const SessionLock = {
     try {
       const r = await fetch('/api/auth/unlock',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-CSRF-Token':window._csrfToken||''},body:JSON.stringify({password})});
       const d = await r.json().catch(()=>({}));
-      if (!d.ok) { err.textContent=d.msg||'No se pudo desbloquear'; return; }
+      if (d.code === 'SESSION_INVALID') { err.textContent=d.msg||'Inicia sesión nuevamente'; setTimeout(()=>{ window.location.href='/login'; }, 1400); return; }
+      if (!d.ok) { err.textContent=d.msg||'No se pudo desbloquear'; const input=document.getElementById('session-unlock-password'); if(input){ input.value=''; input.focus(); } return; }
       this.hide();
     } finally { btn.disabled=false; btn.textContent='Desbloquear'; }
   },
@@ -344,3 +345,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   SessionLock.init({ locked, lockMinutes });
   await Router.navegar(primerModuloPermitido || 'ventas');
 });
+/*
+ * Respuesta visual para los botones que recargan datos (Actualizar, Consultar,
+ * Aplicar, Filtrar). La recarga suele ser tan rápida que la tabla queda igual
+ * y parece que el botón no hizo nada: se gira el ícono mientras carga y se
+ * confirma con un aviso breve al terminar.
+ */
+document.addEventListener('click', event => {
+  const button = event.target.closest?.('button');
+  if (!button || button.disabled || button.classList.contains('mp-busy')) return;
+  if (button.closest('.swal2-container, .modal-overlay')) return;
+  const label = button.textContent.trim().toLowerCase();
+  if (!/^(actualizar|consultar|aplicar|aplicar filtros|filtrar|refrescar)$/.test(label)) return;
+  const startedAt = Date.now();
+  button.classList.add('mp-busy');
+  // Se espera a que el propio manejador del botón lance sus peticiones.
+  setTimeout(async () => {
+    await Http.whenIdle();
+    const wait = Math.max(0, 450 - (Date.now() - startedAt));
+    setTimeout(() => {
+      button.classList.remove('mp-busy');
+      if (!document.body.contains(button) || document.querySelector('.swal2-container')) return;
+      const time = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Datos actualizados · ${time}`, timer: 1600, showConfirmButton: false });
+    }, wait);
+  }, 0);
+}, true);

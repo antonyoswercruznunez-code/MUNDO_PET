@@ -484,15 +484,14 @@ const PedidoWebController = {
       const branches = [...new Set(items.map(x=>Number(x.sucursal_id)))];
       if (!(await canProcess(req,p,branches))) throw httpError('Sin permiso para aprobar este pedido',403);
 
-      const manual = !!req.body.confirmacion_manual;
       const manualNotes = String(req.body.notas||'').trim().slice(0,350);
       const webTrace = `Venta generada desde pedido web ${p.numero_orden || `#${p.id}`}. Canal: ecommerce.`;
       const notes = [webTrace, manualNotes].filter(Boolean).join(' ').slice(0,500);
       const op = String(req.body.numero_operacion||p.codigo_operacion||p.numero_operacion||'').trim().replace(/\s+/g,' ').toUpperCase().slice(0,100);
       const method = String(p.metodo_pago||'yape').toLowerCase();
-      if (['yape','plin','transferencia'].includes(method) && !op && (!manual || manualNotes.length<10)) {
-        throw httpError('Ingresa el número de operación o confirma manualmente con una observación',400);
-      }
+      // El código de operación es opcional en la tienda, así que también lo es
+      // al aprobar: quien aprueba ya revisó el pago. Si existe, se sigue
+      // validando que no esté repetido.
       if (op) {
         const [[dup]] = await conn.query(
           'SELECT id,pedido_web_id,venta_id,pago_id,metodo FROM pagos_operaciones_unicas WHERE referencia=? LIMIT 1 FOR UPDATE',

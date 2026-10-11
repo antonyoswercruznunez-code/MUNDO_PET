@@ -296,168 +296,18 @@ window.init_reportes = async function () {
     return html;
   }
 
-  // ══════════ EXPORTAR EXCEL PROFESIONAL (xlsx-js-style) ══════════
-  function detectarTipo(valor, columna) {
-    // Detecta si una columna es monto (para formato S/) o número
-    const col = (columna || '').toLowerCase();
-    const esMoneda = /total|monto|precio|costo|venta|saldo|gastado|ganancia|pagado|esperado|contado|diferencia|ticket/.test(col);
-    const esNumero = /cantidad|unidades|#|compras|convertidas|días|dias|stock|margen/.test(col);
-    if (esMoneda) return 'moneda';
-    if (esNumero) return 'numero';
-    return 'texto';
-  }
-
+  // ══════════ EXPORTAR EXCEL ══════════
+  // El formato (encabezado de marca, tipos de columna, totales con fórmula)
+  // vive en core/excel.js para que todos los módulos exporten igual.
   function exportarExcel(nombre, columnas, filas) {
-    if (typeof XLSX === 'undefined') {
-      return Swal.fire({ icon:'error', title:'Error', text:'La librería de Excel no cargó. Recarga la página.', background:'#1a1a2e', color:'#e0e0e0' });
+    try {
+      MPExcel.exportTable({
+        title: nombre, columns: columnas, rows: filas,
+        period: `Periodo: ${document.getElementById('rep-desde').value} al ${document.getElementById('rep-hasta').value}`
+      });
+    } catch (error) {
+      Swal.fire({ icon:'error', title:'No se pudo exportar', text: error.message });
     }
-
-    const empresa = 'DISTRIBUCIONES MAOZ E.I.R.L.';
-    const periodo = `Periodo: ${document.getElementById('rep-desde').value}  al  ${document.getElementById('rep-hasta').value}`;
-    const generado = `Generado: ${new Date().toLocaleString('es-PE')}`;
-
-    // Tipos de columna
-    const tipos = columnas.map(c => detectarTipo(null, c));
-
-    // ─── Construir matriz de celdas (AOA) ───
-    const aoa = [];
-    aoa.push([empresa]);              // fila 0: empresa
-    aoa.push([nombre.toUpperCase()]); // fila 1: título reporte
-    aoa.push([periodo]);              // fila 2
-    aoa.push([generado]);             // fila 3
-    aoa.push([]);                     // fila 4: vacía
-    aoa.push(columnas);               // fila 5: encabezados
-    filas.forEach(f => aoa.push(f));  // datos
-
-    // Fila de TOTALES (solo columnas de moneda/número)
-    const totalRow = columnas.map((c, i) => {
-      if (i === 0) return 'TOTAL';
-      if (tipos[i] === 'moneda' || tipos[i] === 'numero') {
-        return filas.reduce((sum, f) => sum + (Number(f[i]) || 0), 0);
-      }
-      return '';
-    });
-    const idxTotal = aoa.length; // índice de la fila de totales
-    aoa.push(totalRow);
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    // ─── Estilos ───
-    const AZUL   = '1F4E78';   // encabezado principal
-    const ROJO   = 'C00000';   // marca
-    const GRIS_H = '4472C4';   // header tabla
-    const GRIS_F = 'D9E1F2';   // fila alterna
-    const AMARILLO = 'FFF2CC'; // total
-
-    const nCols = columnas.length;
-    const lastCol = XLSX.utils.encode_col(nCols - 1);
-
-    // Merges (títulos ocupan todo el ancho)
-    ws['!merges'] = [
-      { s:{r:0,c:0}, e:{r:0,c:nCols-1} },
-      { s:{r:1,c:0}, e:{r:1,c:nCols-1} },
-      { s:{r:2,c:0}, e:{r:2,c:nCols-1} },
-      { s:{r:3,c:0}, e:{r:3,c:nCols-1} }
-    ];
-
-    // Estilo: nombre empresa
-    if (ws['A1']) ws['A1'].s = {
-      font:{ bold:true, sz:16, color:{rgb:ROJO} },
-      alignment:{ horizontal:'center', vertical:'center' }
-    };
-    // Estilo: título reporte
-    if (ws['A2']) ws['A2'].s = {
-      font:{ bold:true, sz:13, color:{rgb:AZUL} },
-      alignment:{ horizontal:'center' }
-    };
-    // periodo y generado
-    ['A3','A4'].forEach(ref => { if (ws[ref]) ws[ref].s = {
-      font:{ sz:10, italic:true, color:{rgb:'808080'} },
-      alignment:{ horizontal:'center' }
-    };});
-
-    // Encabezados de tabla (fila 5, índice 5)
-    for (let c = 0; c < nCols; c++) {
-      const ref = XLSX.utils.encode_cell({ r:5, c });
-      if (!ws[ref]) ws[ref] = { v: columnas[c], t:'s' };
-      ws[ref].s = {
-        font:{ bold:true, sz:11, color:{rgb:'FFFFFF'} },
-        fill:{ fgColor:{rgb:GRIS_H} },
-        alignment:{ horizontal:'center', vertical:'center', wrapText:true },
-        border:{
-          top:{style:'thin',color:{rgb:'FFFFFF'}}, bottom:{style:'thin',color:{rgb:'FFFFFF'}},
-          left:{style:'thin',color:{rgb:'FFFFFF'}}, right:{style:'thin',color:{rgb:'FFFFFF'}}
-        }
-      };
-    }
-
-    // Filas de datos
-    for (let r = 0; r < filas.length; r++) {
-      const filaExcel = 6 + r; // datos empiezan en fila 6
-      const alterna = r % 2 === 1;
-      for (let c = 0; c < nCols; c++) {
-        const ref = XLSX.utils.encode_cell({ r:filaExcel, c });
-        if (!ws[ref]) continue;
-        const tipo = tipos[c];
-
-        // Formato de número/moneda
-        if (tipo === 'moneda') {
-          ws[ref].t = 'n';
-          ws[ref].z = '"S/ "#,##0.00';
-        } else if (tipo === 'numero' && !isNaN(Number(ws[ref].v))) {
-          ws[ref].t = 'n';
-          ws[ref].z = '#,##0';
-        }
-
-        ws[ref].s = {
-          font:{ sz:10, color:{rgb:'333333'} },
-          fill:{ fgColor:{rgb: alterna ? GRIS_F : 'FFFFFF'} },
-          alignment:{ horizontal: (tipo==='texto' ? 'left':'right'), vertical:'center' },
-          border:{
-            top:{style:'hair',color:{rgb:'CCCCCC'}}, bottom:{style:'hair',color:{rgb:'CCCCCC'}},
-            left:{style:'hair',color:{rgb:'CCCCCC'}}, right:{style:'hair',color:{rgb:'CCCCCC'}}
-          }
-        };
-      }
-    }
-
-    // Fila de totales
-    for (let c = 0; c < nCols; c++) {
-      const ref = XLSX.utils.encode_cell({ r:idxTotal, c });
-      if (!ws[ref]) continue;
-      if ((tipos[c] === 'moneda') && typeof ws[ref].v === 'number') {
-        ws[ref].t = 'n'; ws[ref].z = '"S/ "#,##0.00';
-      } else if (tipos[c] === 'numero' && typeof ws[ref].v === 'number') {
-        ws[ref].t = 'n'; ws[ref].z = '#,##0';
-      }
-      ws[ref].s = {
-        font:{ bold:true, sz:11, color:{rgb:AZUL} },
-        fill:{ fgColor:{rgb:AMARILLO} },
-        alignment:{ horizontal: (c===0 ? 'left':'right'), vertical:'center' },
-        border:{
-          top:{style:'medium',color:{rgb:AZUL}}, bottom:{style:'medium',color:{rgb:AZUL}}
-        }
-      };
-    }
-
-    // Ancho de columnas (auto según contenido)
-    ws['!cols'] = columnas.map((c, i) => {
-      let maxLen = String(c).length;
-      filas.forEach(f => { const l = String(f[i] ?? '').length; if (l > maxLen) maxLen = l; });
-      return { wch: Math.min(Math.max(maxLen + 4, 12), 42) };
-    });
-
-    // Alto de filas
-    ws['!rows'] = [];
-    ws['!rows'][0] = { hpt: 26 };
-    ws['!rows'][1] = { hpt: 22 };
-    ws['!rows'][5] = { hpt: 28 };
-
-    // ─── Crear libro y descargar ───
-    const wb = XLSX.utils.book_new();
-    const hoja = nombre.substring(0, 28).replace(/[:\\/?*\[\]]/g, '');
-    XLSX.utils.book_append_sheet(wb, ws, hoja || 'Reporte');
-    XLSX.writeFile(wb, `${nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
   function exportarPDF(titulo, columnas, filas) {

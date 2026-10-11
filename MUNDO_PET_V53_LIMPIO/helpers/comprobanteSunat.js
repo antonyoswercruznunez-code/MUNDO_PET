@@ -179,7 +179,10 @@ function buildCreditNote({ venta, items, original, serie, correlativo, fecha, ho
         codeAfect: '1000',
         nameAfect: 'IGV',
         tipoAfect: 'VAT',
-        icbper: 0
+        icbper: 0,
+        // El PDF de la nota en MiAPI lee este campo de cada línea; si falta,
+        // imprime avisos de su servidor encima del documento.
+        descuentos: { monto: 0 }
       }))
     },
     totales: totalsInSoles(totals)

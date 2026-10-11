@@ -1,83 +1,232 @@
-window.init_rentabilidad = async function () {
+window.init_rentabilidad = async function initRentabilidad() {
   const root = document.getElementById('contenido');
-  const hoy = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Lima',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const mes = hoy.slice(0,7) + '-01';
-  const money = n => `S/ ${Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  const esc = v => String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const C = window.MPCharts;
+  const TZ = 'America/Lima';
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const shiftDays = (iso, days) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+  const money = value => `${Number(value) < 0 ? '−' : ''}S/ ${Math.abs(Number(value || 0)).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const moneyShort = value => Math.abs(Number(value || 0)) >= 10000 ? `S/ ${C.compact(value)}` : money(value);
+  const integer = value => Number(value || 0).toLocaleString('es-PE');
+  const pct = value => `${Number(value || 0).toFixed(1)}%`;
+  const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const shortDate = iso => { const [, m, d] = String(iso || '').split('-'); return m ? `${Number(d)} ${MONTHS[Number(m) - 1]}` : ''; };
+  const longDate = iso => { const [y, m, d] = String(iso || '').split('-'); return m ? `${Number(d)} de ${MONTHS[Number(m) - 1]}. de ${y}` : ''; };
+  const plural = (n, one, many) => `${integer(n)} ${Number(n) === 1 ? one : many}`;
+  const PAYMENT = { efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', transferencia: 'Transferencia', izipay: 'POS Izipay', credito: 'Crédito' };
+  const CHANNEL = { presencial: 'Tienda física', web: 'Tienda web' };
+  const ALERT = { sin_costo: 'Sin costo registrado', costo_mayor_venta: 'Costo mayor que el precio', margen_bajo: 'Margen muy bajo', sin_precio: 'Sin precio de venta' };
+
+  const PRESETS = [
+    { id: '7d', label: '7 días', range: () => [shiftDays(today, -6), today] },
+    { id: '30d', label: '30 días', range: () => [shiftDays(today, -29), today] },
+    { id: 'mes', label: 'Este mes', range: () => [`${today.slice(0, 7)}-01`, today] },
+    { id: 'anio', label: 'Este año', range: () => [`${today.slice(0, 4)}-01-01`, today] }
+  ];
+  let [from, to] = PRESETS[2].range();
 
   root.innerHTML = `
-    <div class="page-header"><div class="page-header-left"><h2><i class="ti ti-chart-pie-2"></i> Rentabilidad</h2><p>Comprueba si el negocio gana, pierde y qué productos sostienen el resultado.</p></div></div>
-    <div class="card" style="padding:16px;margin-bottom:16px"><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end">
-      <div class="form-group"><label class="form-label">Desde</label><input class="form-control" type="date" id="ren-desde" value="${mes}" max="${hoy}"></div>
-      <div class="form-group"><label class="form-label">Hasta</label><input class="form-control" type="date" id="ren-hasta" value="${hoy}" max="${hoy}"></div>
-      <div class="form-group" id="ren-sucursal-wrap"><label class="form-label">Sucursal</label><select class="form-control" id="ren-sucursal"><option value="">Todas</option></select></div>
-      <button class="btn btn-primary" id="ren-aplicar"><i class="ti ti-refresh"></i> Aplicar</button>
-    </div></div>
-    <div id="ren-body"><div class="loading-center"><div class="spinner spinner-lg"></div></div></div>`;
-
-  const sucWrap=document.getElementById('ren-sucursal-wrap');
-  if(!window._esGlobal) sucWrap.style.display='none';
-  else {
-    const d=await Http.get('/sucursales');
-    if(d?.ok) document.getElementById('ren-sucursal').innerHTML='<option value="">Todas</option>'+d.sucursales.map(x=>`<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
-  }
-
-  function bars(rows, key='margen') {
-    if(!rows?.length) return '<div class="empty-state"><i class="ti ti-chart-bar-off"></i><p>Sin datos en el periodo</p></div>';
-    const max=Math.max(...rows.map(x=>Number(x[key]||0)),1);
-    return rows.slice(0,12).map(x=>`<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><b>${esc(x.nombre||x.canal||'—')}</b><span>${money(x[key])}</span></div><div style="height:10px;background:var(--input-bg);border-radius:999px;overflow:hidden;margin-top:5px"><div style="width:${Math.max(2,Number(x[key]||0)/max*100)}%;height:100%;background:linear-gradient(90deg,#16a34a,#0ea5e9);border-radius:999px"></div></div></div>`).join('');
-  }
-
-  function lineChart(rows) {
-    if(!rows?.length) return '<div class="empty-state"><p>Sin movimiento diario</p></div>';
-    const vals=rows.map(x=>Number(x.margen||0));
-    const max=Math.max(...vals,0,1), min=Math.min(...vals,0);
-    const W=820,H=270,pL=68,pR=20,pT=30,pB=48;
-    const range=Math.max(1,max-min);
-    const x=(i)=>pL+i*(W-pL-pR)/Math.max(1,rows.length-1);
-    const y=(v)=>pT+(max-v)*(H-pT-pB)/range;
-    const pts=rows.map((r,i)=>`${x(i)},${y(Number(r.margen||0))}`).join(' ');
-    const step=Math.max(1,Math.ceil(rows.length/8));
-    const grid=[0,.25,.5,.75,1].map(fr=>{const val=max-range*fr, yy=y(val);return `<line x1="${pL}" y1="${yy}" x2="${W-pR}" y2="${yy}" stroke="rgba(100,116,139,.25)"/><text x="${pL-8}" y="${yy+4}" text-anchor="end" font-size="11" fill="#64748b">${money(val).replace('S/ ','')}</text>`}).join('');
-    const zeroY=y(0);
-    return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:700px;height:290px">
-      ${grid}<line x1="${pL}" y1="${zeroY}" x2="${W-pR}" y2="${zeroY}" stroke="#94a3b8" stroke-width="1.5"/>
-      <polyline points="${pts}" fill="none" stroke="#16a34a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      ${rows.map((r,i)=>{const cx=x(i),cy=y(Number(r.margen||0)), show=i%step===0||i===rows.length-1;return `<circle cx="${cx}" cy="${cy}" r="5" fill="${Number(r.margen||0)>=0?'#0ea5e9':'#dc2626'}"><title>${esc(r.fecha)} · Ingreso ${money(r.ingresos)} · Costo ${money(r.costo)} · Margen ${money(r.margen)}</title></circle>${show?`<text x="${cx}" y="${Math.max(14,cy-10)}" text-anchor="middle" font-size="10" font-weight="700" fill="${Number(r.margen||0)>=0?'#166534':'#991b1b'}">${money(r.margen).replace('S/ ','')}</text><text x="${cx}" y="${H-17}" text-anchor="middle" font-size="10" fill="#64748b">${esc(String(r.fecha||'').slice(5))}</text>`:''}`}).join('')}
-    </svg></div>`;
-  }
-
-  function dailyTable(rows){
-    if(!rows?.length)return '';
-    return `<div style="overflow:auto;max-height:320px;margin-top:12px"><table class="tabla"><thead><tr><th>Fecha</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Costo</th><th style="text-align:right">Margen</th><th style="text-align:right">Margen %</th></tr></thead><tbody>${rows.map(x=>{const ingresos=Number(x.ingresos||0),costo=Number(x.costo||0),margen=Number(x.margen||0),pct=ingresos?margen/ingresos*100:0;return `<tr><td>${esc(String(x.fecha||'').slice(0,10))}</td><td style="text-align:right">${money(ingresos)}</td><td style="text-align:right">${money(costo)}</td><td style="text-align:right;font-weight:800;color:${margen>=0?'var(--success)':'var(--danger)'}">${money(margen)}</td><td style="text-align:right">${pct.toFixed(2)}%</td></tr>`}).join('')}</tbody></table></div>`;
-  }
-
-  function channelTable(rows){
-    if(!rows?.length)return '<div class="empty-state"><p>Sin ventas por canal</p></div>';
-    return `<div style="overflow:auto;margin-top:14px"><table class="tabla"><thead><tr><th>Canal</th><th style="text-align:right">Ventas</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Costo</th><th style="text-align:right">Margen</th></tr></thead><tbody>${rows.map(x=>`<tr><td style="text-transform:capitalize"><b>${esc(x.canal||'—')}</b></td><td style="text-align:right">${Number(x.ventas||x.cantidad||0)}</td><td style="text-align:right">${money(x.ingresos||x.total)}</td><td style="text-align:right">${money(x.costo)}</td><td style="text-align:right;font-weight:800;color:${Number(x.margen||0)>=0?'var(--success)':'var(--danger)'}">${money(x.margen)}</td></tr>`).join('')}</tbody></table></div>`;
-  }
-
-  async function cargar(){
-    const desde=document.getElementById('ren-desde').value, hasta=document.getElementById('ren-hasta').value;
-    if(desde>hoy||hasta>hoy) return Swal.fire({icon:'warning',title:'Fecha futura',text:'Solo puedes consultar hasta hoy.'});
-    const qs=new URLSearchParams({desde,hasta}); const sid=document.getElementById('ren-sucursal')?.value;if(sid)qs.set('sucursal_id',sid);
-    const body=document.getElementById('ren-body');body.innerHTML='<div class="loading-center"><div class="spinner spinner-lg"></div></div>';
-    const d=await Http.get('/rentabilidad/resumen?'+qs.toString());
-    if(!d?.ok){body.innerHTML=`<div class="empty-state"><i class="ti ti-alert-triangle"></i><p>${esc(d?.msg||'No se pudo cargar')}</p></div>`;return;}
-    const k=d.kpis;
-    body.innerHTML=`
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px">
-        ${[['Ingresos',money(k.ingresos),'ti-cash','#0ea5e9'],['Costo utilizado',money(k.costo),'ti-package-export','#64748b'],['Margen bruto',money(k.margen_bruto),'ti-trending-up','#16a34a'],['Margen %',Number(k.margen_pct).toFixed(2)+'%','ti-percentage','#7c3aed'],['Egresos',money(k.egresos),'ti-cash-off','#f59e0b'],['Resultado estimado',money(k.resultado_estimado),k.resultado_estimado>=0?'ti-circle-check':'ti-alert-triangle',k.resultado_estimado>=0?'#16a34a':'#dc2626'],['Ticket promedio',money(k.ticket_promedio),'ti-receipt','#0891b2'],['Ventas / unidades',`${k.ventas} / ${k.unidades}`,'ti-shopping-cart','#475569']].map(x=>`<div class="card" style="padding:18px;border-top:4px solid ${x[3]}"><i class="ti ${x[2]}" style="float:right;font-size:25px;color:${x[3]}"></i><div style="font-size:11px;color:var(--texto-muted);text-transform:uppercase;font-weight:700">${x[0]}</div><div style="font-size:24px;font-weight:900;margin-top:7px;color:${x[0]==='Resultado estimado'?(k.resultado_estimado>=0?'var(--success)':'var(--danger)'):'var(--texto-fuerte)'}">${x[1]}</div></div>`).join('')}
+    <div class="dx">
+      <div class="dx-head">
+        <div><h2>Rentabilidad</h2><p id="rn-period"></p></div>
+        <div class="dx-filters">
+          <div class="dx-presets" role="group" aria-label="Periodo">${PRESETS.map(p => `<button type="button" data-preset="${p.id}">${p.label}</button>`).join('')}</div>
+          <label class="dx-range" title="Rango personalizado"><i class="ti ti-calendar"></i><input id="rn-from" type="date" max="${today}" aria-label="Desde"><span>a</span><input id="rn-to" type="date" max="${today}" aria-label="Hasta"></label>
+          <select id="rn-branch" class="dx-select" aria-label="Sucursal" hidden><option value="">Todas las sucursales</option></select>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px">
-        ${[['Inversión actual en inventario',money(k.inversion_inventario),'Capital inmovilizado en stock'],['Valor potencial de venta',money(k.valor_venta_inventario),'Valor estimado si se vende el stock'],['Ganancia potencial del inventario',money(k.ganancia_potencial_inventario),'Diferencia entre venta y costo'],['ROI del periodo',Number(k.roi_periodo||0).toFixed(2)+'%','Resultado frente a costo y egresos'],['Punto de equilibrio',money(k.punto_equilibrio),'Ventas necesarias para cubrir egresos'],['Productos críticos',`${k.productos_criticos||0} de ${k.productos_activos||0}`,'Stock igual o menor al mínimo']].map(x=>`<div class="card" style="padding:16px"><div style="font-size:11px;color:var(--texto-muted);text-transform:uppercase;font-weight:800">${x[0]}</div><div style="font-size:22px;font-weight:900;color:var(--texto-fuerte);margin:7px 0">${x[1]}</div><small style="color:var(--texto-muted)">${x[2]}</small></div>`).join('')}
-      </div>
-      ${k.items_costo_inconsistente?`<div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #f59e0b;background:#fffbeb"><b><i class="ti ti-alert-triangle"></i> ${k.items_costo_inconsistente} línea(s) con costo inconsistente</b><p style="font-size:12px;margin-top:5px;color:#92400e">${esc(d.nota_costos)}</p></div>`:''}
-      <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:14px;margin-bottom:16px"><div class="card" style="padding:18px"><h3>Margen diario con valores</h3><p style="font-size:12px;color:var(--texto-muted);margin-top:-4px">Cada punto muestra la utilidad bruta del día. La tabla permite comprobar ingresos, costo y porcentaje.</p>${lineChart(d.diario)}${dailyTable(d.diario)}</div><div class="card" style="padding:18px"><h3>Margen por canal</h3>${bars(d.canales)}${channelTable(d.canales)}</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px"><div class="card" style="padding:18px"><h3>Productos que más margen generan</h3>${bars(d.productos)}</div><div class="card" style="padding:18px"><h3>Alertas de precio y costo</h3>${d.alertas?.length?`<div class="tabla-container"><table class="tabla"><thead><tr><th>Producto</th><th>Costo</th><th>Venta</th><th>Alerta</th></tr></thead><tbody>${d.alertas.map(x=>`<tr><td><b>${esc(x.nombre)}</b><small style="display:block">${esc(x.sucursal_nombre||'')}</small></td><td>${money(x.precio_costo)}</td><td>${money(x.precio_venta)}</td><td><span class="badge badge-warning">${esc(String(x.tipo).replaceAll('_',' '))}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty-state"><i class="ti ti-circle-check"></i><p>Sin alertas de costos</p></div>'}</div></div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,1fr);gap:14px;margin-bottom:16px"><div class="card" style="padding:18px"><h3>Ingresos por medio de pago</h3>${bars((d.medios_pago||[]).map(x=>({...x,nombre:String(x.metodo||'').toUpperCase(),margen:x.monto})))}</div><div class="card" style="padding:18px"><h3 style="margin-bottom:4px">Lectura rápida del negocio</h3><p style="font-size:12px;color:var(--texto-muted);margin:0 0 14px">Resumen ejecutivo del periodo seleccionado.</p><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><article style="grid-column:1/-1;padding:16px;border-radius:14px;border:1px solid ${k.resultado_estimado>=0?'#86efac':'#fecaca'};background:${k.resultado_estimado>=0?'#f0fdf4':'#fef2f2'}"><span style="display:block;font-size:10px;text-transform:uppercase;font-weight:900;color:${k.resultado_estimado>=0?'#166534':'#991b1b'}">${k.resultado_estimado>=0?'Utilidad estimada':'Pérdida estimada'}</span><strong style="display:block;font-size:27px;margin-top:5px;color:${k.resultado_estimado>=0?'#15803d':'#dc2626'}">${money(Math.abs(k.resultado_estimado))}</strong></article><article style="padding:14px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:13px"><span style="font-size:10px;color:#0369a1;text-transform:uppercase;font-weight:900">Margen bruto</span><strong style="display:block;font-size:22px;color:#0c4a6e;margin-top:5px">${Number(k.margen_pct||0).toFixed(2)}%</strong></article><article style="padding:14px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:13px"><span style="font-size:10px;color:#6d28d9;text-transform:uppercase;font-weight:900">ROI del periodo</span><strong style="display:block;font-size:22px;color:#5b21b6;margin-top:5px">${Number(k.roi_periodo||0).toFixed(2)}%</strong></article><article style="grid-column:1/-1;padding:14px;border:1px solid #fde68a;background:#fffbeb;border-radius:13px"><span style="font-size:10px;color:#92400e;text-transform:uppercase;font-weight:900">Capital en inventario</span><strong style="display:block;font-size:22px;color:#78350f;margin:5px 0">${money(k.inversion_inventario)}</strong><small style="color:#92400e">Controla productos sin rotación y stock crítico para liberar capital.</small></article></div></div></div>
-      ${d.sucursales?.length?`<div class="card" style="padding:18px"><h3>Rentabilidad por sucursal</h3>${bars(d.sucursales)}</div>`:''}`;
+      <div id="rn-body" class="dx-body"><div class="loading-center"><div class="spinner spinner-lg"></div></div></div>
+    </div>`;
+
+  const body = document.getElementById('rn-body');
+  const fromInput = document.getElementById('rn-from');
+  const toInput = document.getElementById('rn-to');
+  const branchSelect = document.getElementById('rn-branch');
+
+  if (window._esGlobal) {
+    const branches = await Http.get('/sucursales');
+    if (branches?.ok && branches.sucursales?.length) {
+      branchSelect.innerHTML = '<option value="">Todas las sucursales</option>' + branches.sucursales.map(b => `<option value="${Number(b.id)}">${esc(b.nombre)}</option>`).join('');
+      branchSelect.hidden = false;
+    }
   }
-  document.getElementById('ren-aplicar').onclick=cargar;
-  cargar();
+
+  function syncControls() {
+    fromInput.value = from; toInput.value = to; fromInput.max = to; toInput.min = from;
+    const active = PRESETS.find(p => { const [a, b] = p.range(); return a === from && b === to; });
+    document.querySelectorAll('[data-preset]').forEach(button => button.classList.toggle('on', button.dataset.preset === active?.id));
+  }
+
+  const card = (i, title, subtitle, content, action = '') => `
+    <section class="dx-card" style="--i:${i}">
+      <header class="dx-card-head"><div><h3>${esc(title)}</h3>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${action}</header>
+      ${content}
+    </section>`;
+
+  const tile = ({ label, value, foot, icon, tone, i }) => `
+    <div class="dx-kpi rn-tile" style="--i:${i};${tone ? `--tone:var(--mp-${tone});--tone-bg:var(--mp-${tone}-bg)` : ''}">
+      <span class="dx-kpi-top"><span class="dx-kpi-label">${esc(label)}</span><span class="dx-kpi-icon"><i class="ti ${icon}"></i></span></span>
+      <span class="dx-kpi-value">${value}</span>
+      <span class="dx-kpi-foot"><small>${foot}</small></span>
+    </div>`;
+
+  // Cuenta de resultados en una sola lectura: de lo vendido a lo que queda.
+  function statement(k) {
+    const base = Math.max(Number(k.ingresos) || 0, 1);
+    const rows = [
+      { label: 'Ventas', hint: `${plural(k.ventas, 'venta', 'ventas')} · ${plural(k.unidades, 'unidad', 'unidades')}`, value: k.ingresos, kind: 'in' },
+      { label: 'Costo de lo vendido', hint: 'Lo que costó la mercadería que salió', value: -k.costo, kind: 'out' },
+      { label: 'Margen bruto', hint: `${pct(k.margen_pct)} de cada sol vendido`, value: k.margen_bruto, kind: 'sub' },
+      { label: 'Gastos de caja', hint: 'Egresos registrados en caja', value: -k.egresos, kind: 'out' },
+      { label: 'Resultado', hint: k.resultado_estimado >= 0 ? 'Lo que quedó de ganancia' : 'Lo que faltó para cubrir costos y gastos', value: k.resultado_estimado, kind: 'total' }
+    ];
+    return `<div class="rn-statement">${rows.map(row => {
+      const amount = Number(row.value || 0);
+      const negative = amount < 0;
+      const width = Math.min(100, Math.abs(amount) / base * 100);
+      const tone = row.kind === 'out' ? 'out' : negative ? 'loss' : row.kind === 'in' ? 'in' : 'gain';
+      return `<div class="rn-line ${row.kind}">
+        <div class="rn-line-text"><b>${esc(row.label)}</b><small>${esc(row.hint)}</small></div>
+        <div class="rn-line-bar"><i class="${tone}" data-w="${width.toFixed(2)}"></i></div>
+        <div class="rn-line-value ${negative && row.kind !== 'out' ? 'loss' : ''}">${row.kind === 'out' && amount !== 0 ? '− ' + money(Math.abs(amount)) : money(amount)}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function dailyTable(rows) {
+    if (!rows?.length) return '';
+    return `<details class="rn-details"><summary>Ver el detalle día por día</summary>
+      <div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Fecha</th><th class="num">Ventas</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">Margen %</th></tr></thead><tbody>${rows.map(r => {
+        const income = Number(r.ingresos || 0), margin = Number(r.margen || 0);
+        return `<tr><td>${esc(longDate(r.fecha))}</td><td class="num">${money(income)}</td><td class="num">${money(r.costo)}</td><td class="num strong" style="color:var(${margin >= 0 ? '--mp-good' : '--mp-bad'})">${money(margin)}</td><td class="num muted">${income ? pct(margin / income * 100) : '—'}</td></tr>`;
+      }).join('')}</tbody></table></div></details>`;
+  }
+
+  function productTable(rows) {
+    if (!rows?.length) return '<div class="mpc-empty"><i class="ti ti-package-off"></i><span>Sin productos vendidos en el periodo</span></div>';
+    return `<div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Producto</th><th class="num">Unidades</th><th class="num">Ventas</th><th class="num">Costo</th><th class="num">Ganancia</th><th class="num">Margen</th></tr></thead><tbody>${rows.slice(0, 12).map(r => {
+      const margin = Number(r.margen || 0), mp = Number(r.margen_pct || 0);
+      const tone = margin < 0 ? 'bad' : mp < 15 ? 'warn' : 'good';
+      return `<tr><td><div class="cell-main"><span class="strong">${esc(r.nombre)}</span><span class="muted">${esc(r.sucursal_nombre || '')}</span></div></td>
+        <td class="num">${integer(r.unidades)}</td><td class="num">${money(r.ingresos)}</td><td class="num">${money(r.costo)}</td>
+        <td class="num strong">${money(margin)}</td><td class="num">${Number(r.costo) > 0 ? `<span class="mp-chip ${tone}">${pct(mp)}</span>` : '<span class="mp-chip warn" title="Sin costo registrado, el margen no es real">Sin costo</span>'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+
+  function alertTable(rows) {
+    if (!rows?.length) return `<div class="dx-allgood"><i class="ti ti-check"></i><span>Todos los productos tienen costo y precio coherentes.</span></div>`;
+    return `<div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Producto</th><th class="num">Costo</th><th class="num">Precio</th><th>Qué revisar</th></tr></thead><tbody>${rows.map(r => `
+      <tr><td><div class="cell-main"><span class="strong">${esc(r.nombre)}</span><span class="muted">${esc(r.sucursal_nombre || '')}</span></div></td>
+        <td class="num">${money(r.precio_costo)}</td><td class="num">${money(r.precio_venta)}</td>
+        <td><span class="mp-chip warn"><i class="ti ti-alert-triangle"></i>${esc(ALERT[r.tipo] || String(r.tipo || '').replaceAll('_', ' '))}</span></td></tr>`).join('')}</tbody></table></div>`;
+  }
+
+  function channelBlock(rows) {
+    const data = (rows || []).filter(r => Number(r.ingresos) > 0);
+    if (!data.length) return '<div class="mpc-empty"><i class="ti ti-chart-dots-3"></i><span>Sin ventas en el periodo</span></div>';
+    const total = data.reduce((sum, r) => sum + Number(r.ingresos), 0);
+    return `
+      <div class="dx-split-bar" role="img" aria-label="Ventas por canal">${data.map((r, i) => `<i data-w="${(Number(r.ingresos) / total * 100).toFixed(2)}" style="background:${C.seriesColor(i)}"></i>`).join('')}</div>
+      <div class="mp-table-wrap"><table class="mp-table"><thead><tr><th>Canal</th><th class="num">Ventas</th><th class="num">Importe</th><th class="num">Ganancia</th></tr></thead><tbody>${data.map((r, i) => `
+        <tr><td><span style="display:inline-flex;align-items:center;gap:8px"><i style="width:10px;height:10px;border-radius:3px;background:${C.seriesColor(i)}"></i><span class="strong">${esc(CHANNEL[r.canal] || r.canal)}</span></span></td>
+          <td class="num">${integer(r.ventas)}</td><td class="num">${money(r.ingresos)}</td><td class="num strong" style="color:var(${Number(r.margen) >= 0 ? '--mp-good' : '--mp-bad'})">${money(r.margen)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+
+  let requestId = 0;
+  async function load() {
+    syncControls();
+    const current = ++requestId;
+    const query = new URLSearchParams({ desde: from, hasta: to });
+    if (branchSelect.value) query.set('sucursal_id', branchSelect.value);
+    body.classList.add('loading');
+    const data = await Http.get(`/rentabilidad/resumen?${query}`);
+    if (current !== requestId || !document.body.contains(body)) return;
+    body.classList.remove('loading');
+    if (!data?.ok) {
+      body.innerHTML = `<div class="dx-card"><div class="mpc-empty"><i class="ti ti-cloud-off"></i><span>${esc(data?.msg || 'No se pudo cargar la rentabilidad')}</span></div></div>`;
+      return;
+    }
+
+    const k = data.kpis || {};
+    const result = Number(k.resultado_estimado || 0);
+    const noSales = !Number(k.ventas);
+    const gain = result >= 0;
+    document.getElementById('rn-period').textContent = from === to ? longDate(from) : `Del ${longDate(from)} al ${longDate(to)}`;
+
+    const verdict = noSales
+      ? { cls: 'flat', icon: 'ti-moon', title: 'Sin ventas en el periodo', text: 'No hay ventas registradas entre estas fechas, así que todavía no hay resultado que mostrar.' }
+      : gain
+        ? { cls: 'gain', icon: 'ti-trending-up', title: 'El negocio ganó', text: `Después de cubrir el costo de la mercadería y los gastos de caja, quedaron ${money(result)}. De cada S/ 100 vendidos, ${(Number(k.ingresos) ? result / Number(k.ingresos) * 100 : 0).toFixed(0)} fueron ganancia.` }
+        : { cls: 'loss', icon: 'ti-trending-down', title: 'El negocio perdió', text: `Las ventas no alcanzaron para cubrir el costo de la mercadería y los gastos de caja. Faltaron ${money(Math.abs(result))}.` };
+
+    const tiles = [
+      { label: 'Margen sobre ventas', value: pct(k.margen_pct), foot: 'ganancia bruta por cada sol vendido', icon: 'ti-percentage', tone: Number(k.margen_pct) >= 20 ? 'good' : Number(k.margen_pct) > 0 ? 'warn' : 'bad' },
+      { label: 'Ticket promedio', value: money(k.ticket_promedio), foot: 'importe medio por venta', icon: 'ti-receipt-2', tone: 'info' },
+      { label: 'Retorno del periodo', value: pct(k.roi_periodo), foot: 'ganancia frente a lo invertido en costo y gastos', icon: 'ti-arrow-back-up', tone: Number(k.roi_periodo) >= 0 ? 'good' : 'bad' },
+      { label: 'Punto de equilibrio', value: money(k.punto_equilibrio), foot: Number(k.punto_equilibrio) ? (Number(k.ingresos) >= Number(k.punto_equilibrio) ? 'ya se superó con las ventas del periodo' : `faltan ${money(Number(k.punto_equilibrio) - Number(k.ingresos))} en ventas`) : 'sin gastos de caja que cubrir', icon: 'ti-scale', tone: Number(k.ingresos) >= Number(k.punto_equilibrio) ? 'good' : 'warn' }
+    ];
+
+    let i = 0;
+    body.innerHTML = `
+      <div class="dx-row hero">
+        <section class="dx-card rn-verdict ${verdict.cls}" style="--i:${i++}">
+          <div class="rn-verdict-head">
+            <span class="rn-verdict-icon"><i class="ti ${verdict.icon}"></i></span>
+            <div><div class="dx-hero-label">${esc(verdict.title)}</div><div class="dx-hero-value" id="rn-result">${money(0)}</div></div>
+          </div>
+          <p class="rn-verdict-text">${esc(verdict.text)}</p>
+          ${noSales ? '' : statement(k)}
+        </section>
+        <div class="rn-side">${tiles.map(item => tile({ ...item, i: i++ })).join('')}</div>
+      </div>
+      ${Number(k.items_costo_inconsistente) ? `<div class="rn-note" style="--i:${i++}"><i class="ti ti-alert-triangle"></i><div><b>${plural(k.items_costo_inconsistente, 'línea vendida tiene', 'líneas vendidas tienen')} un costo mayor que su precio.</b><span>${esc(data.nota_costos || '')}</span></div></div>` : ''}
+      ${card(i++, 'Ganancia día por día', 'Margen bruto de cada día. Los puntos rojos son días con pérdida.', `<div id="rn-daily"></div>${dailyTable(data.diario)}`)}
+      <div class="dx-row wide-left">
+        ${card(i++, 'Ganancia por producto', 'Qué productos sostienen el resultado', productTable(data.productos))}
+        ${card(i++, 'Por canal de venta', 'Tienda física frente a tienda web', channelBlock(data.canales))}
+      </div>
+      <div class="dx-row two">
+        ${card(i++, 'Cómo se cobró', 'Importe recibido por cada medio de pago', '<div id="rn-payments"></div>')}
+        ${card(i++, 'Dinero en inventario', 'Lo que hay hoy en stock y lo que rendiría al venderse', `
+          <div class="rn-inventory">
+            <div><small>Invertido en stock</small><b>${money(k.inversion_inventario)}</b><span>a precio de costo</span></div>
+            <div><small>Valor si se vende todo</small><b>${money(k.valor_venta_inventario)}</b><span>a precio de venta</span></div>
+            <div class="accent"><small>Ganancia potencial</small><b>${money(k.ganancia_potencial_inventario)}</b><span>${plural(k.productos_criticos || 0, 'producto bajo', 'productos bajo')} mínimo de ${integer(k.productos_activos)}</span></div>
+          </div>`)}
+      </div>
+      ${data.sucursales?.length > 1 ? card(i++, 'Ganancia por sucursal', 'Margen bruto de cada sede en el periodo', '<div id="rn-branches"></div>') : ''}
+      ${card(i++, 'Costos y precios por revisar', 'Datos que pueden estar distorsionando la ganancia', alertTable(data.alertas))}`;
+
+    C.countUp(document.getElementById('rn-result'), Math.abs(result), value => money(gain ? value : -value));
+    C.area(document.getElementById('rn-daily'), {
+      name: 'Margen', format: money, height: 250, emptyText: 'Sin movimiento en el periodo seleccionado',
+      rows: (data.diario || []).map(r => ({ label: shortDate(r.fecha), title: longDate(r.fecha), value: Number(r.margen || 0), sub: `de ${money(r.ingresos)} vendidos` }))
+    });
+    C.donut(document.getElementById('rn-payments'), {
+      format: money, centerFormat: moneyShort, centerLabel: 'Cobrado',
+      rows: (data.medios_pago || []).map(r => ({ label: PAYMENT[r.metodo] || r.metodo, value: Number(r.monto || 0), sub: plural(r.operaciones || 0, 'pago', 'pagos') }))
+    });
+    const branchesHost = document.getElementById('rn-branches');
+    if (branchesHost) C.bars(branchesHost, { format: money, rows: data.sucursales.map(r => ({ label: r.nombre, value: Math.max(0, Number(r.margen || 0)), sub: `de ${money(r.ingresos)} vendidos` })) });
+
+    requestAnimationFrame(() => body.querySelectorAll('[data-w]').forEach(node => node.style.setProperty('--w', `${node.dataset.w}%`)));
+  }
+
+  document.querySelectorAll('[data-preset]').forEach(button => {
+    button.onclick = () => { [from, to] = PRESETS.find(p => p.id === button.dataset.preset).range(); load(); };
+  });
+  const applyCustom = () => {
+    const a = fromInput.value, b = toInput.value;
+    if (!a || !b) return;
+    if (a > b || b > today) {
+      syncControls();
+      return Swal.fire({ icon: 'warning', title: 'Rango de fechas inválido', text: 'La fecha inicial debe ser anterior a la final y ninguna puede ser futura.' });
+    }
+    from = a; to = b; load();
+  };
+  fromInput.onchange = applyCustom;
+  toInput.onchange = applyCustom;
+  branchSelect.onchange = load;
+
+  await load();
 };

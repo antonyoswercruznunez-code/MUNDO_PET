@@ -95,3 +95,22 @@ const Http = {
     return res.json().catch(() => ({ ok:false, msg:'Respuesta inválida del servidor' }));
   }
 };
+
+// Cuenta las peticiones en curso para poder avisar cuándo terminó una recarga.
+(function () {
+  const rawRequest = Http._request;
+  Http._pending = 0;
+  Http._request = async function (...args) {
+    this._pending++;
+    try { return await rawRequest.apply(this, args); }
+    finally { this._pending--; }
+  };
+  // Se resuelve cuando no queda ninguna petición activa (con un tope de espera).
+  Http.whenIdle = function (maxMs = 15000) {
+    const started = Date.now();
+    return new Promise(resolve => {
+      const check = () => (Http._pending <= 0 || Date.now() - started > maxMs) ? resolve() : setTimeout(check, 80);
+      setTimeout(check, 120);
+    });
+  };
+})();

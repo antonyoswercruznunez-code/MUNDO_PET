@@ -84,6 +84,8 @@ const soloAdmin = (req, res, next) => {
   next();
 };
 
+const MAX_UNLOCK_ATTEMPTS = 5;
+
 async function unlock(req, res, next) {
   try {
     const password = String(req.body?.password || '');
@@ -91,8 +93,21 @@ async function unlock(req, res, next) {
     const db = getDB();
     const [[row]] = await db.query('SELECT password_hash, estado FROM usuarios WHERE id = ? LIMIT 1', [req.session.usuario.id]);
     if (!row || Number(row.estado) !== 0 || !(await bcrypt.compare(password, row.password_hash))) {
-      return res.status(401).json({ ok: false, msg: 'Contraseña incorrecta' });
+      // Tras varios intentos fallidos la sesión se cierra: quien esté frente a
+      // la pantalla bloqueada tiene que iniciar sesión de nuevo, y el login ya
+      // tiene su propio bloqueo por intentos.
+      const fails = Number(req.session.unlock_fails || 0) + 1;
+      if (fails >= MAX_UNLOCK_ATTEMPTS) {
+        return req.session.destroy(() => res.status(401).json({
+          ok: false, code: 'SESSION_INVALID',
+          msg: 'Demasiados intentos fallidos. Inicia sesión nuevamente.'
+        }));
+      }
+      req.session.unlock_fails = fails;
+      const left = MAX_UNLOCK_ATTEMPTS - fails;
+      return res.status(401).json({ ok: false, msg: `Contraseña incorrecta. ${left === 1 ? 'Queda 1 intento' : `Quedan ${left} intentos`} antes de cerrar la sesión.` });
     }
+    req.session.unlock_fails = 0;
     req.session.locked = false;
     req.session.locked_at = null;
     req.session.last_user_activity_at = now();

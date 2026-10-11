@@ -766,14 +766,24 @@ window.init_ventas = async function () {
     cont.innerHTML = lista.map(p => {
       const stockColor = p.stock_actual <= p.stock_minimo ? 'var(--danger)' : 'var(--success)';
       const img = p.imagen_portada
-        ? `<img src="${p.imagen_portada}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">`
+        ? `<img src="${p.imagen_portada}" alt="" onerror="this.style.visibility='hidden'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--input-bg)">`
         : `<div style="width:40px;height:40px;background:var(--input-bg);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="ti ti-photo" style="color:var(--texto-muted);font-size:14px"></i></div>`;
-      const click = p.tiene_presentaciones
-        ? `onclick="_nvMostrarPresentaciones(${p.id})"`
-        : `onclick="_nvAgregarItem(${p.id},null)"`;
+      // Un producto transferido solo se vende cuando un administrador lo
+      // habilitó para el panel. Se avisa aquí en vez de fallar al registrar.
+      const transferido = Number(p.es_transferido) === 1;
+      const bloqueado = transferido && Number(p.transferencia_venta_panel) !== 1;
+      const click = bloqueado
+        ? `onclick="_nvProductoBloqueado()"`
+        : p.tiene_presentaciones
+          ? `onclick="_nvMostrarPresentaciones(${p.id})"`
+          : `onclick="_nvAgregarItem(${p.id},null)"`;
+      const avisoTransferido = !transferido ? ''
+        : bloqueado
+          ? `<div style="font-size:10.5px;font-weight:700;color:var(--mp-warn);margin-top:2px"><i class="ti ti-lock"></i> Transferido · aún no habilitado para venta</div>`
+          : `<div style="font-size:10.5px;font-weight:600;color:var(--mp-info);margin-top:2px"><i class="ti ti-transfer"></i> Transferido · habilitado</div>`;
       return `
-        <div ${click} style="display:flex;align-items:center;gap:10px;padding:10px;
-             border-radius:8px;cursor:pointer;transition:background .15s;
+        <div ${click} ${bloqueado ? 'title="Habilítalo desde Inventario → Transferencias"' : ''} style="display:flex;align-items:center;gap:10px;padding:10px;
+             border-radius:8px;cursor:${bloqueado ? 'not-allowed' : 'pointer'};transition:background .15s;${bloqueado ? 'opacity:.6;' : ''}
              background:var(--card-bg);border:1px solid var(--card-border)"
              onmouseover="this.style.background='var(--tabla-hover)'"
              onmouseout="this.style.background='var(--card-bg)'">
@@ -782,15 +792,19 @@ window.init_ventas = async function () {
             <div style="font-weight:500;color:#fff;font-size:13px;overflow:hidden;
                         text-overflow:ellipsis;white-space:nowrap">${p.nombre}</div>
             <div style="font-size:11px;color:${stockColor}">Stock: ${p.stock_actual}</div>
+            ${avisoTransferido}
             <div style="font-size:11px;color:var(--texto-muted)">
               S/ ${parseFloat(p.precio_venta).toFixed(2)}
               ${p.tiene_presentaciones ? `<span style="color:var(--info);margin-left:6px"><i class="ti ti-layers"></i> Con presentaciones</span>` : ''}
             </div>
           </div>
-          <i class="ti ti-${p.tiene_presentaciones ? 'chevron-right' : 'plus'}" style="color:var(--rojo);flex-shrink:0"></i>
+          <i class="ti ti-${bloqueado ? 'lock' : p.tiene_presentaciones ? 'chevron-right' : 'plus'}" style="color:${bloqueado ? 'var(--texto-muted)' : 'var(--rojo)'};flex-shrink:0"></i>
         </div>`;
     }).join('');
   }
+
+  window._nvProductoBloqueado = () => alerta('warning', 'Producto transferido',
+    'Este producto llegó por transferencia y todavía no está habilitado para venta. Un administrador puede habilitarlo desde Inventario.');
 
   window._nvMostrarPresentaciones = async function(prodId) {
     const res = await Http.get(`/productos/${prodId}`);
@@ -1852,6 +1866,33 @@ ${venta.observacion ? `<div style="border:1px solid #ddd;border-radius:6px;paddi
          </button>` : '';
 
     const body = document.getElementById('emitir-body');
+    const modalTitle = document.querySelector('#modal-emitir .modal-title');
+
+    // Comprobante anulado: ya no tiene validez, así que solo se muestra la
+    // nota de crédito (lo que se entrega al cliente), no las acciones del original.
+    if (ncAceptada) {
+      if (modalTitle) modalTitle.innerHTML = '<i class="ti ti-receipt-refund"></i> Comprobante anulado';
+      body.innerHTML = `
+        <div style="text-align:center;margin-bottom:18px">
+          <div style="font-size:11px;color:var(--texto-muted);text-transform:uppercase;margin-bottom:6px">Nota de crédito</div>
+          <div style="font-weight:700;color:var(--texto-fuerte);font-size:18px">${nc.numero}</div>
+          <span class="badge badge-danger" style="font-size:12px;padding:6px 14px;margin-top:8px;display:inline-block">ANULA ${res.numero || ''}</span>
+          ${nc.motivo ? `<div style="font-size:12px;color:var(--texto-muted);margin-top:8px">Motivo: ${escHtml(nc.motivo)}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${fila(nc.pdf_a4,     'ti-file-type-pdf', '#e53935',        'Nota de crédito PDF A4', 'Entrégala al cliente')}
+          ${fila(nc.pdf_ticket, 'ti-receipt',       '#e53935',        'Nota de crédito Ticket', 'Impresora térmica 80mm')}
+          ${fila(nc.xml,        'ti-file-code',     'var(--info)',    'XML firmado de la nota', 'Documento electrónico oficial')}
+          ${fila(nc.cdr,        'ti-certificate',   'var(--success)', 'CDR de la nota',         'Constancia de SUNAT')}
+        </div>
+        <div style="font-size:11px;color:var(--texto-muted);margin-top:14px;text-align:center">
+          ${res.numero || 'El comprobante original'} fue aceptado por SUNAT y luego anulado con esta nota de crédito.
+        </div>`;
+      document.getElementById('modal-emitir').classList.add('open');
+      return;
+    }
+
+    if (modalTitle) modalTitle.innerHTML = '<i class="ti ti-file-invoice"></i> Comprobante electrónico';
     body.innerHTML = `
       <div style="text-align:center;margin-bottom:18px">
         <div style="font-size:11px;color:var(--texto-muted);text-transform:uppercase;margin-bottom:6px">

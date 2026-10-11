@@ -31,6 +31,20 @@
     return { max: top, step, values };
   }
 
+  // Igual que niceScale pero con mínimo negativo: el cero siempre es una marca.
+  function niceRange(min, max, ticks = 4) {
+    if (!(min < 0)) { const s = niceScale(max, ticks); return { min: 0, max: s.max, values: s.values }; }
+    const span = Math.max(max, 0) - min;
+    const rough = span / ticks;
+    const power = Math.pow(10, Math.floor(Math.log10(rough)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * power).find(s => s >= rough) || rough;
+    const lo = Math.floor(min / step) * step;
+    const hi = Math.max(step, Math.ceil(Math.max(max, 0) / step) * step);
+    const values = [];
+    for (let v = lo; v <= hi + step / 2; v += step) values.push(Number(v.toFixed(6)));
+    return { min: lo, max: hi, values };
+  }
+
   function compact(value) {
     const n = Number(value || 0);
     const abs = Math.abs(n);
@@ -132,7 +146,7 @@
   /* ── Área / línea de una serie en el tiempo ────────────────────────── */
   // rows: [{ label, value, sub? }]  ·  format(value) → texto
   function area(host, { rows = [], format = String, height = 280, name = 'Valor', emptyText } = {}) {
-    if (!rows.length || !rows.some(row => Number(row.value) > 0)) return empty(host, emptyText);
+    if (!rows.length || !rows.some(row => Number(row.value) !== 0)) return empty(host, emptyText);
     host.classList.add('mpc-chart');
     responsive(host, (width, animate) => {
       host.textContent = '';
@@ -140,9 +154,9 @@
       const innerW = Math.max(10, width - pad.left - pad.right);
       const innerH = height - pad.top - pad.bottom;
       const values = rows.map(row => Number(row.value || 0));
-      const scale = niceScale(Math.max(...values));
+      const scale = niceRange(Math.min(...values), Math.max(...values));
       const x = index => pad.left + (rows.length === 1 ? innerW / 2 : (index * innerW) / (rows.length - 1));
-      const y = value => pad.top + innerH - (value / scale.max) * innerH;
+      const y = value => pad.top + innerH - ((value - scale.min) / (scale.max - scale.min)) * innerH;
       const svg = svgEl('svg', { width, height, viewBox: `0 0 ${width} ${height}`, role: 'img', tabindex: 0, 'aria-label': `${name}: ${rows.length} puntos, máximo ${format(Math.max(...values))}` });
 
       for (const tick of scale.values) {
@@ -174,6 +188,11 @@
       peakLabel.textContent = format(values[peak]);
       svg.appendChild(peakLabel);
       svg.appendChild(svgEl('circle', { cx: x(peak), cy: y(values[peak]), r: 4, class: 'mpc-dot' }));
+
+      // Los puntos bajo cero (pérdida) se marcan en rojo con su propio aviso.
+      values.forEach((value, index) => {
+        if (value < 0) svg.appendChild(svgEl('circle', { cx: x(index), cy: y(value), r: 3.5, class: 'mpc-dot mpc-dot-neg' }));
+      });
 
       const cross = svgEl('line', { y1: pad.top, y2: pad.top + innerH, class: 'mpc-cross', visibility: 'hidden' });
       const marker = svgEl('circle', { r: 5, class: 'mpc-dot mpc-dot-live', visibility: 'hidden' });

@@ -72,10 +72,10 @@ const ConfigController = {
     const allowed=new Set([
       'yape_activo','yape_numero','yape_titular','plin_activo','plin_numero','plin_titular',
       'transferencia_activo','transferencia_banco','transferencia_titular','transferencia_cuenta','transferencia_cci',
-      'izipay_activo','izipay_instrucciones','delivery_costo','delivery_gratis_desde','delivery_cargo_unidad'
+      'izipay_activo','izipay_instrucciones','delivery_gratis_desde'
     ]);
     const data=req.body&&typeof req.body==='object'?req.body:{};
-    for(const key of ['delivery_costo','delivery_gratis_desde','delivery_cargo_unidad']){
+    for(const key of ['delivery_gratis_desde']){
       if(key in data && (!Number.isFinite(Number(data[key])) || Number(data[key]) < 0 || Number(data[key]) > 100000)){
         return res.status(400).json({ok:false,msg:'El costo de delivery debe ser un monto válido y no negativo'});
       }

@@ -435,3 +435,28 @@ html[data-tema="oscuro"] .swal2-popup { background: var(--card-bg) !important; }
 #btn-ver-tienda i { font-size: 17px; color: var(--mpc-accent); }
 #btn-ver-tienda:hover { border-color: var(--mpc-accent); color: var(--mpc-accent); transform: translateY(-1px); }
 @media (max-width: 768px) { #btn-ver-tienda span { display: none; } #btn-ver-tienda { padding: 0 10px; } }
+
+.mp-spin { display: inline-block; animation: mp-spin .8s linear infinite; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+
+/* ── Reportes: misma capa visual que el dashboard ───────────────────── */
+body .rep-tabs, body .rep-tab-bar { gap: 4px; }
+body .rep-tab { border-radius: 10px 10px 0 0; transition: color .18s, background .18s; }
+body .rep-tab:hover { background: color-mix(in srgb, var(--primary, #16a34a) 7%, transparent); }
+body .rep-tab.active { color: var(--primary, #16a34a); border-bottom-color: var(--primary, #16a34a); background: color-mix(in srgb, var(--primary, #16a34a) 9%, transparent); }
+body .rep-kpi-grid { gap: 16px; }
+body .rep-kpi { position: relative; overflow: hidden; border-radius: 16px; padding: 18px 18px 18px 22px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 26px -18px rgba(15, 23, 42, .28); transition: transform .2s, box-shadow .2s; animation: dx-in .45s both; }
+body .rep-kpi::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: var(--primary, #16a34a); opacity: .85; }
+body .rep-kpi:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(15, 23, 42, .05), 0 18px 34px -18px rgba(15, 23, 42, .34); }
+body .rep-kpi:nth-child(2) { animation-delay: .05s; } body .rep-kpi:nth-child(3) { animation-delay: .1s; }
+body .rep-kpi:nth-child(4) { animation-delay: .15s; } body .rep-kpi:nth-child(5) { animation-delay: .2s; } body .rep-kpi:nth-child(6) { animation-delay: .25s; }
+body .rep-kpi-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+body .rep-kpi-value { font-size: 24px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+body .rep-card { border-radius: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 12px 30px -22px rgba(15, 23, 42, .3); animation: dx-in .5s both; }
+body .rep-card-title { font-size: 15px; letter-spacing: -.01em; }
+body .rep-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+body .rep-table td { font-variant-numeric: tabular-nums; }
+body .rep-table tbody tr { transition: background .15s; }
+body .rep-table tbody tr:hover { background: color-mix(in srgb, var(--primary, #16a34a) 5%, transparent); }
+body .rep-btn-export { border-radius: 9px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { body .rep-kpi, body .rep-card { animation: none; } }

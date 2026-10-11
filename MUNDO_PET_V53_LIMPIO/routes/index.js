@@ -242,6 +242,7 @@ router.get('/reportes/cotizaciones', auth, requirePermission('reportes.ver'), Re
 router.get('/reportes/logistica', auth, requirePermission('reportes.ver'), Reporte.logistica);
 router.get('/reportes/inventario', auth, requirePermission('reportes.ver'), Reporte.inventario);
 router.get('/reportes/comprobantes', auth, requirePermission('reportes.ver'), Reporte.comprobantes);
+router.post('/reportes/exportar-pdf', auth, requirePermission('reportes.ver'), Reporte.exportarPdf);
 router.get('/rentabilidad/resumen', auth, requirePermission('rentabilidad.ver'), Rentabilidad.resumen);
 
 

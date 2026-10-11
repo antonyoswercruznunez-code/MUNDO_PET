@@ -1,7 +1,6 @@
 <div class="page-header">
   <div class="page-header-left">
     <h2><i class="ti ti-cash"></i> Caja</h2>
-    <p>Gestión de efectivo, sesiones y pagos digitales</p>
   </div>
 </div>
 
@@ -11,7 +10,6 @@
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
       <div>
         <h4 style="margin:0;color:var(--texto-fuerte)"><i class="ti ti-users"></i> Operando en este momento</h4>
-        <p style="margin:4px 0 0;color:var(--texto-muted);font-size:12px">Usuario, caja, sucursal y hora exacta de apertura.</p>
       </div>
       <button class="btn btn-outline btn-sm" id="btn-refrescar-operadores"><i class="ti ti-refresh"></i> Actualizar</button>
     </div>
@@ -22,7 +20,6 @@
     <div class="cajas-fisicas-header">
       <div>
         <h4><i class="ti ti-settings"></i> Cajas físicas por sucursal</h4>
-        <p>Activa las cajas que realmente se usarán y configura fondo inicial, horario y disponibilidad.</p>
       </div>
       <span class="badge badge-info"><i class="ti ti-building-store"></i> Configuración administrativa</span>
     </div>
@@ -212,7 +209,7 @@
 <div id="tab-web" class="tab-content" style="display:none">
   <div class="card caja-web-filter" style="padding:18px;margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-      <div><h3 style="margin:0"><i class="ti ti-world-www"></i> Conciliación Ecommerce</h3><p style="margin:4px 0 0;color:var(--texto-muted);font-size:12px">Ventas, medios de pago, delivery y recojo generados desde la página web.</p></div>
+      <div><h3 style="margin:0"><i class="ti ti-world-www"></i> Conciliación Ecommerce</h3></div>
       <button class="btn btn-primary" id="btn-refrescar-caja-web"><i class="ti ti-refresh"></i> Actualizar</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end">
@@ -337,7 +334,6 @@
       <div class="form-group" style="margin-bottom:0">
         <label class="cfg-lbl">Fondo inicial de apertura (S/)</label>
         <input id="cfg-caja-monto-inicial" type="number" min="0" step="0.01" class="form-control" placeholder="0.00">
-        <p style="font-size:11px;color:var(--texto-muted);margin:5px 0 0">Se aplica automáticamente al abrir esta caja; el vendedor no puede cambiarlo.</p>
       </div>
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0">

@@ -470,7 +470,7 @@ const Tienda = {
     this.showModal(`
       <div class="modal-head"><h3>Finalizar compra</h3><button class="close-x" onclick="Tienda.cerrarModal()"><i class="ti ti-x"></i></button></div>
       <div class="modal-body">
-        ${branches.length>1?`<div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:13px;border-radius:10px;margin-bottom:16px"><b>Compra de ${branches.length} sucursales.</b><br><span style="font-size:12px">Se generará un solo pedido y una sola nota de venta. Cada sucursal preparará su parte.</span></div>`:''}
+        
         <div style="display:flex;gap:8px;margin-bottom:18px"><span style="background:var(--brand);color:#fff;border-radius:999px;padding:5px 10px;font-size:12px">1 Identidad</span><span style="background:#e2e8f0;border-radius:999px;padding:5px 10px;font-size:12px">2 Entrega</span><span style="background:#e2e8f0;border-radius:999px;padding:5px 10px;font-size:12px">3 Pago</span></div>
         <div style="font-weight:800;margin-bottom:8px">Confirma tus datos</div>
         <div style="display:flex;gap:8px">
@@ -500,10 +500,10 @@ const Tienda = {
         <label style="font-size:13px;font-weight:700;margin:9px 0 8px;display:block">Método de pago</label>
         <div class="metodo-pago">${this.paymentMethodsHTML(methods)}</div>
         <div id="ck-payment-info" style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:13px;margin:0 0 12px">${this.paymentInfoHTML(methods[0])}</div>
-        <div class="field"><label>Número o código de operación (opcional)</label><input id="ck-codigo" maxlength="100" placeholder="Puede tener distinta longitud según la app o banco"></div>
-        <div class="field"><label>Captura del pago (opcional)</label><label class="mp-file-picker"><i class="ti ti-photo-up"></i><span id="ck-voucher-name">Elegir una imagen</span><input id="ck-voucher" type="file" accept="image/jpeg,image/png,image/webp" onchange="const f=this.files[0]||null;if(!Tienda.validarVoucher(f)){this.value='';Tienda._voucherFile=null;document.getElementById('ck-voucher-name').textContent='Elegir una imagen';return;}Tienda._voucherFile=f;document.getElementById('ck-voucher-name').textContent=f?.name||'Elegir una imagen'"></label><small>Solo JPG, PNG o WEBP.</small></div>
+        <div class="field"><label>Número o código de operación (opcional)</label><input id="ck-codigo" maxlength="100"></div>
+        <div class="field"><label>Captura del pago (opcional)</label><label class="mp-file-picker"><i class="ti ti-photo-up"></i><span id="ck-voucher-name">Elegir una imagen</span><input id="ck-voucher" type="file" accept="image/jpeg,image/png,image/webp" onchange="const f=this.files[0]||null;if(!Tienda.validarVoucher(f)){this.value='';Tienda._voucherFile=null;document.getElementById('ck-voucher-name').textContent='Elegir una imagen';return;}Tienda._voucherFile=f;document.getElementById('ck-voucher-name').textContent=f?.name||'Elegir una imagen'"></label></div>
         <label class="check-line" style="margin:10px 0"><input type="checkbox" id="ck-solicita-factura" onchange="document.getElementById('ck-factura-comentario').style.display=this.checked?'block':'none'"> Solicitar factura después de aprobar el pedido</label>
-        <div class="field" id="ck-factura-comentario" style="display:none"><label>Comentario para facturación (opcional)</label><textarea id="ck-comentario-factura" rows="2" maxlength="500" placeholder="Ej.: enviar la factura a este correo o indicar una referencia. La venta siempre se crea primero como nota de venta."></textarea></div>
+        <div class="field" id="ck-factura-comentario" style="display:none"><label>Comentario para facturación (opcional)</label><textarea id="ck-comentario-factura" rows="2" maxlength="500" placeholder="Ej.: enviar la factura a este correo o indicar una referencia."></textarea></div>
         <div id="ck-delivery-fee" class="cart-total-row" style="display:none"><span><b>Costo de delivery</b><small id="ck-delivery-detail" style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Calculando…</small></span><b id="ck-delivery-amount">—</b></div><div class="cart-total-row big" style="margin:18px 0"><span>Total estimado</span><span id="ck-total-estimado">S/ ${this.checkoutTotal().toFixed(2)}</span></div>
         <button class="btn-block" id="ck-confirm" onclick="Tienda.confirmarPedido()"><i class="ti ti-check"></i> Confirmar pedido</button>
       </div>`, 'wide');

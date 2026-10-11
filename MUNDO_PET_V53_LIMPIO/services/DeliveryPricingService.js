@@ -33,12 +33,12 @@ function distanceKm(a, b) {
 
 async function getSettings(db) {
   const [rows] = await db.query(`SELECT clave,valor FROM configuracion
-    WHERE clave IN ('delivery_origen_lat','delivery_origen_lng','delivery_origen_nombre','delivery_gratis_desde','delivery_costo')`);
+    WHERE clave IN ('delivery_origen_lat','delivery_origen_lng','delivery_origen_nombre','delivery_gratis_desde')`);
   const cfg = Object.fromEntries(rows.map(r => [r.clave, r.valor]));
   const origin = validPoint(cfg.delivery_origen_lat, cfg.delivery_origen_lng)
     ? { lat: Number(cfg.delivery_origen_lat), lng: Number(cfg.delivery_origen_lng), nombre: cfg.delivery_origen_nombre || 'Punto de despacho' }
     : null;
-  return { origin, freeFrom: clampMoney(cfg.delivery_gratis_desde), flatFee: clampMoney(cfg.delivery_costo) };
+  return { origin, freeFrom: clampMoney(cfg.delivery_gratis_desde) };
 }
 
 async function listZones(db, { activeOnly = false } = {}) {
@@ -67,11 +67,14 @@ async function publicConfig(db) {
     listZones(db, { activeOnly: true }),
     db.query('SELECT id,nombre,lat,lng FROM sucursales WHERE estado=0').then(([rows]) => rows)
   ]);
+  const sucursales = branches.filter(b => validPoint(b.lat, b.lng)).map(b => ({ id: Number(b.id), nombre: b.nombre, lat: Number(b.lat), lng: Number(b.lng) }));
   return {
+    // Sin punto de despacho o sin zonas no se puede cobrar: no se ofrece delivery.
+    disponible: zones.length > 0 && (!!settings.origin || sucursales.length > 0),
     origen: settings.origin,
     gratis_desde: settings.freeFrom,
     zonas: zones.map(z => ({ id: z.id, nombre: z.nombre, km_hasta: z.km_hasta, costo: z.costo })),
-    sucursales: branches.filter(b => validPoint(b.lat, b.lng)).map(b => ({ id: Number(b.id), nombre: b.nombre, lat: Number(b.lat), lng: Number(b.lng) }))
+    sucursales
   };
 }
 
@@ -98,15 +101,9 @@ async function quote(db, { subtotal = 0, location = {}, branchIds = [] } = {}) {
   const safeSubtotal = clampMoney(subtotal);
   const free = settings.freeFrom > 0 && safeSubtotal >= settings.freeFrom;
 
-  // Instalación sin zonas configuradas: se mantiene la tarifa única de siempre.
   const points = origins.length ? origins : (settings.origin ? [settings.origin] : []);
   if (!zones.length || !points.length) {
-    const total = free ? 0 : settings.flatFee;
-    return result({
-      total, free, free_from: settings.freeFrom, zone_name: 'Tarifa única',
-      calculation: free ? `Envío gratis desde S/ ${settings.freeFrom.toFixed(2)}` : `Tarifa única S/ ${total.toFixed(2)}`,
-      description: 'Delivery con tarifa única.'
-    });
+    return result({ covered: false, unavailable: true, description: 'El delivery todavía no está disponible. Puedes elegir recojo en tienda.' });
   }
 
   if (!validPoint(location.lat, location.lng)) {

@@ -295,8 +295,8 @@ async function ensureSchema(db, projectRoot) {
   await db.query(`INSERT INTO delivery_tarifas
     (nombre,sucursal_id,departamento,provincia,distrito,tarifa_base,cargo_por_unidad,gratis_desde,activo)
     SELECT 'Tarifa general',NULL,'','','',
-      COALESCE((SELECT valor FROM configuracion WHERE clave='delivery_costo' LIMIT 1),8.00),
-      COALESCE((SELECT valor FROM configuracion WHERE clave='delivery_cargo_unidad' LIMIT 1),0.50),
+      8.00,
+      0.50,
       COALESCE((SELECT valor FROM configuracion WHERE clave='delivery_gratis_desde' LIMIT 1),150.00),1
     WHERE NOT EXISTS(SELECT 1 FROM delivery_tarifas)`);
 
@@ -375,10 +375,10 @@ async function ensureSchema(db, projectRoot) {
   }
 
   if (await tableExists(db, 'configuracion')) {
+    // El delivery se cobra solo por zonas: la tarifa única ya no existe.
+    await db.query("DELETE FROM configuracion WHERE clave IN ('delivery_costo','delivery_cargo_unidad')").catch(() => {});
     for (const row of [
-      ['delivery_costo','8.00','ecommerce'],
       ['delivery_gratis_desde','150.00','ecommerce'],
-      ['delivery_cargo_unidad','0.50','ecommerce'],
       ['schema_version','53','sistema']
     ]) {
       await db.query(`INSERT INTO configuracion (clave,valor,grupo) VALUES (?,?,?)

@@ -149,8 +149,8 @@ const TiendaController = {
       logo: logo?.ruta || null,
       whatsapp: cfg.ecommerce_whatsapp || '', facebook: cfg.tienda_facebook || '', instagram: cfg.tienda_instagram || '',
       direccion: cfg.tienda_direccion || cfg.empresa_direccion || '', horario: cfg.tienda_horario || '',
-      delivery_activo: cfg.delivery_activo === 'true', recojo_activo: cfg.recojo_activo === 'true',
-      delivery_costo: Number(cfg.delivery_costo || 0), delivery_cargo_unidad: Number(cfg.delivery_cargo_unidad || 0), delivery_gratis_desde: Number(cfg.delivery_gratis_desde || 0),
+      delivery_activo: cfg.delivery_activo === 'true' && delivery.disponible, recojo_activo: cfg.recojo_activo === 'true',
+      delivery_gratis_desde: Number(cfg.delivery_gratis_desde || 0),
       metodos_pago,
       yape_numero: cfg.yape_numero || '', yape_qr_ruta: cfg.yape_qr_ruta || '',
       plin_numero: cfg.plin_numero || '', plin_qr_ruta: cfg.plin_qr_ruta || '',
@@ -319,7 +319,7 @@ const TiendaController = {
     if (!WEB_PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ ok:false,msg:'Método de pago web inválido' });
     const [paymentRows] = await db.query(
       `SELECT clave,valor FROM configuracion
-       WHERE clave IN ('yape_activo','plin_activo','transferencia_activo','izipay_activo','delivery_costo','delivery_gratis_desde','delivery_cargo_unidad')`
+       WHERE clave IN ('yape_activo','plin_activo','transferencia_activo','izipay_activo')`
     );
     const paymentCfg = Object.fromEntries(paymentRows.map(r => [r.clave, String(r.valor)]));
     const enabled = {

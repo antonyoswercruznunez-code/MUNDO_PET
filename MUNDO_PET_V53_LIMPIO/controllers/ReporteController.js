@@ -1,5 +1,6 @@
 const { wrap }    = require('../helpers/response');
 const ReporteModel = require('../models/ReporteModel');
+const { buildReportPdf } = require('../helpers/reportePdf');
 const LogisticaModel = require('../models/LogisticaModel');
 const { hasPermission, hasGlobalScope, userScope } = require('../middleware/permisos');
 
@@ -143,8 +144,30 @@ const ReporteController = {
   comprobantes: wrap(async (req,res)=>{
     const sid=await sucursalScope(req); const {desde,hasta}=rango(req);
     res.json({ok:true,...await ReporteModel.comprobantesResumen(sid,desde,hasta)});
-  })
+  }),
 
+  // ══════════ EXPORTAR A PDF ══════════
+  // Recibe la tabla que el usuario ya ve en pantalla y la devuelve como PDF.
+  exportarPdf: wrap(async (req, res) => {
+    const body = req.body || {};
+    const columnas = Array.isArray(body.columnas) ? body.columnas.slice(0, 24).map(String) : [];
+    const filas = Array.isArray(body.filas) ? body.filas : [];
+    if (!columnas.length) return res.status(400).json({ ok:false, msg:'El reporte no tiene columnas' });
+    if (filas.length > 20000) return res.status(400).json({ ok:false, msg:'El reporte es demasiado grande para PDF. Acorta el periodo o usa Excel.' });
+    const [[cfg]] = await require('../config/database').getDB().query("SELECT valor FROM configuracion WHERE clave='empresa_nombre'");
+    const pdf = await buildReportPdf({
+      titulo: String(body.titulo || 'Reporte').slice(0, 120),
+      empresa: cfg?.valor || 'Distribuciones MAOZ E.I.R.L.',
+      periodo: String(body.periodo || '').slice(0, 80),
+      columnas,
+      tipos: Array.isArray(body.tipos) ? body.tipos.map(String) : [],
+      filas: filas.map(row => Array.isArray(row) ? row : []),
+      totales: Array.isArray(body.totales) ? body.totales : null,
+      generado: new Intl.DateTimeFormat('es-PE', { timeZone:'America/Lima', dateStyle:'long', timeStyle:'short' }).format(new Date())
+    });
+    res.set({ 'Content-Type':'application/pdf', 'Content-Disposition':'attachment; filename="reporte.pdf"', 'Cache-Control':'no-store' });
+    res.send(pdf);
+  })
 };
 
 module.exports = ReporteController;

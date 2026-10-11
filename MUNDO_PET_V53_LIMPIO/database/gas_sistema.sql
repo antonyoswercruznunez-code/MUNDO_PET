@@ -1919,7 +1919,7 @@ INSERT INTO `configuracion` (`clave`,`valor`,`grupo`) VALUES
 ('ecommerce_sucursal_central_id','1','ecommerce'),('ecommerce_whatsapp','','ecommerce'),('reserva_web_minutes','30','ecommerce'),
 ('tienda_nombre','Mundo Pet','ecommerce'),('tienda_descripcion','Tienda online y distribución por sucursal','ecommerce'),
 ('tienda_direccion','','ecommerce'),('tienda_horario','Lun-Sáb 09:00 - 20:00','ecommerce'),('tienda_facebook','','ecommerce'),('tienda_instagram','','ecommerce'),
-('delivery_costo','8.00','ecommerce'),('delivery_cargo_unidad','0.50','ecommerce'),('delivery_gratis_desde','150.00','ecommerce'),
+('delivery_gratis_desde','150.00','ecommerce'),
 ('yape_activo','true','pagos'),('yape_numero','','pagos'),('yape_titular','','pagos'),('yape_qr_ruta','','pagos'),
 ('plin_activo','true','pagos'),('plin_numero','','pagos'),('plin_titular','','pagos'),('plin_qr_ruta','','pagos'),
 ('transferencia_activo','true','pagos'),('transferencia_banco','','pagos'),('transferencia_titular','','pagos'),('transferencia_cuenta','','pagos'),('transferencia_cci','','pagos'),('transferencia_imagen_ruta','','pagos'),

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css" rel="stylesheet">
-<link href="/assets/css/mapa.css?v=53.3.0" rel="stylesheet">
+<link href="/assets/css/mapa.css?v=53.4.0" rel="stylesheet">
 <style>
 :root{
   --brand:#18a94b; --brand-dark:#0f7a37; --brand-soft:#ecfdf3; --brand-blue:#16b9d4;
@@ -207,82 +207,80 @@ footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid v
 .qty input{width:64px;height:32px;border:1px solid var(--line);border-radius:8px;text-align:center;font-weight:800;color:var(--ink);background:#fff;outline:none}.qty input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(22,163,74,.12)}.cart-item-price{display:flex;flex-direction:column;align-items:flex-start;gap:3px}.cart-item-price small{font-size:10px;color:var(--muted);text-decoration:line-through}.cart-volume-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;background:#ecfdf5;color:#15803d;font-size:10px;font-weight:800}.cart-line-subtotal{font-size:11px;color:var(--muted);margin-top:7px}.cart-foot-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;color:var(--muted)}.cart-clear{border:0;background:#fff1f2;color:#be123c;padding:8px 10px;border-radius:9px;font-weight:800;cursor:pointer}.cart-clear:hover{background:#ffe4e6}.cart-price-note{display:block;color:var(--muted);line-height:1.45;margin:-2px 0 12px}.store-trust{margin-top:24px}
 @media(max-width:520px){.qty input{width:52px}.cart-item{grid-template-columns:58px 1fr auto}.cart-item img{width:58px;height:58px}}
 </style>
+<link href="/assets/css/tienda.css?v=53.4.0" rel="stylesheet">
 </head>
 <body>
-<header>
-  <div class="container topbar">
-    <a href="/tienda" class="logo" id="brand">
+<div class="st-strip" id="st-strip" hidden><div class="st-wrap"></div></div>
+<div class="st-header" id="st-header" role="banner">
+  <div class="st-wrap st-bar">
+    <a href="/tienda" class="st-logo" id="brand">
       <span id="brand-logo"><i class="ti ti-paw"></i></span>
       <span id="brand-name">Mundo Pet</span>
     </a>
-    <div class="search">
-      <input type="text" id="buscador" placeholder="Buscar productos, marcas...">
+    <label class="st-search">
+      <input type="search" id="buscador" placeholder="¿Qué estás buscando?" autocomplete="off" aria-label="Buscar productos">
       <i class="ti ti-search"></i>
-    </div>
-    <div class="header-actions">
-      <button class="icon-btn" id="btn-cart" title="Carrito">
-        <i class="ti ti-shopping-cart"></i>
-        <span class="cart-badge" id="cart-badge" style="display:none">0</span>
+    </label>
+    <div class="st-actions" style="position:relative">
+      <button class="st-icon-btn" id="btn-cart" aria-label="Abrir carrito">
+        <i class="ti ti-shopping-bag"></i>
+        <span class="st-badge" id="cart-badge">0</span>
       </button>
-      <button class="btn-user" id="btn-user">
-        <i class="ti ti-user"></i> <span id="user-label">Ingresar</span>
+      <button class="st-user" id="btn-user">
+        <i class="ti ti-user"></i><span id="user-label">Ingresar</span>
       </button>
+      <div id="st-menu-host"></div>
     </div>
   </div>
-  <div class="cats-bar">
-    <div class="container" id="cats-bar">
-      <button class="cat-chip active" data-cat="">Todos</button>
-    </div>
-  </div>
-</header>
-
-
-<div class="container">
-<div class="slider" id="slider" style="display:none">
-    <div class="slides" id="slides"></div>
-    <button class="slider-nav prev" onclick="Tienda.slidePrev()"><i class="ti ti-chevron-left"></i></button>
-    <button class="slider-nav next" onclick="Tienda.slideNext()"><i class="ti ti-chevron-right"></i></button>
-    <div class="slider-dots" id="slider-dots"></div>
-  </div>
-<div class="section-head">
-    <h2 id="section-title">Productos</h2>
-    <select class="orden-sel" id="orden" onchange="Tienda.cargarProductos()">
-      <option value="">Más recientes</option>
-      <option value="precio_asc">Precio: menor a mayor</option>
-      <option value="precio_desc">Precio: mayor a menor</option>
-      <option value="nombre">Nombre A-Z</option>
-    </select>
-  </div>
-  <div class="grid" id="grid">
-    <div class="loading"><div class="spin"></div>Cargando productos...</div>
-  </div>
+  <div class="st-wrap"><div class="st-cats" id="cats-bar"></div></div>
 </div>
-<footer>
-  <div class="container">
-    <div class="foot-grid">
+
+<main class="st-wrap">
+  <div class="st-hero" id="slider">
+    <div class="st-slides" id="slides"></div>
+    <button class="st-hero-nav prev" aria-label="Imagen anterior" onclick="Tienda.slidePrev()" hidden><i class="ti ti-chevron-left"></i></button>
+    <button class="st-hero-nav next" aria-label="Imagen siguiente" onclick="Tienda.slideNext()" hidden><i class="ti ti-chevron-right"></i></button>
+    <div class="st-dots" id="slider-dots"></div>
+  </div>
+  <div id="st-home"></div>
+  <div id="st-catalog" hidden>
+    <div class="st-toolbar">
+      <h2 id="section-title">Productos</h2>
+      <select class="st-sort" id="orden" aria-label="Ordenar productos" onchange="Tienda.cargarProductos()">
+        <option value="">Más recientes</option>
+        <option value="precio_asc">Precio: menor a mayor</option>
+        <option value="precio_desc">Precio: mayor a menor</option>
+        <option value="nombre">Nombre A-Z</option>
+      </select>
+    </div>
+    <div class="st-grid" id="grid"></div>
+  </div>
+</main>
+
+<div class="st-footer" role="contentinfo">
+  <div class="st-wrap">
+    <div class="st-foot">
       <div>
-        <h4 id="foot-nombre">Mundo Pet</h4>
-        <p id="foot-desc">Tu tienda de confianza.</p>
-        <div class="foot-social" id="foot-social"></div>
+        <div class="st-foot-brand" id="foot-nombre">Mundo Pet</div>
+        <p id="foot-desc"></p>
+        <div class="st-social" id="foot-social"></div>
       </div>
       <div>
         <h4>Contacto</h4>
-        <p id="foot-direccion"></p>
-        <p id="foot-horario"></p>
+        <ul id="foot-contacto"></ul>
       </div>
       <div>
         <h4>Mi cuenta</h4>
-        <a href="#" onclick="Tienda.abrirAuth();return false">Iniciar sesión</a>
-        <a href="#" onclick="Tienda.verPedidos();return false">Mis pedidos</a>
+        <ul id="foot-cuenta"></ul>
       </div>
     </div>
-    <div class="foot-bottom">© <span id="foot-year"></span> <span id="foot-empresa">Distribuciones MAOZ E.I.R.L.</span> — Todos los derechos reservados</div>
+    <div class="st-foot-end">© <span id="foot-year"></span> <span id="foot-empresa">Distribuciones MAOZ E.I.R.L.</span></div>
   </div>
-</footer>
+</div>
 <div class="overlay" id="overlay" onclick="Tienda.cerrarTodo()"></div>
 <div class="drawer" id="cart-drawer">
   <div class="drawer-head">
-    <h3>Mi carrito</h3>
+    <h3>Tu carrito <small id="cart-count"></small></h3>
     <button class="close-x" onclick="Tienda.cerrarTodo()"><i class="ti ti-x"></i></button>
   </div>
   <div class="drawer-body" id="cart-body"></div>
@@ -291,7 +289,8 @@ footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid v
 <div id="modales"></div>
 <div class="toast-wrap" id="toasts"></div>
 
-<script src="/assets/js/core/mapa.js?v=53.3.0"></script>
-<script src="/tienda-app.js?v=53.3.0"></script>
+<script src="/assets/js/core/mapa.js?v=53.4.0"></script>
+<script src="/tienda-app.js?v=53.4.0"></script>
+<script src="/tienda-ui.js?v=53.4.0"></script>
 </body>
 </html>

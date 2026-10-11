@@ -30,7 +30,7 @@
         <div class="dza-side">
           <div class="dza-panel">
             <h4>Zonas y costos</h4>
-            <p>Cada zona cubre desde el punto de despacho hasta la distancia indicada. Más allá de la última no hay reparto.</p>
+            
             <div class="dza-zone dza-zone-head"><span></span><span>Nombre</span><span class="num">Hasta (km)</span><span class="num">Costo (S/)</span><span></span></div>
             <div id="dza-zones"></div>
             <div class="dza-actions">
@@ -40,13 +40,13 @@
           </div>
           <div class="dza-panel">
             <div class="dza-free">
-              <label for="dza-free">Envío gratis desde<small>Si la compra llega a este importe, el delivery no se cobra. Deja 0 para no ofrecerlo.</small></label>
+              <label for="dza-free">Envío gratis desde<small>0 = sin envío gratis</small></label>
               <input id="dza-free" class="form-control" type="number" min="0" step="1" inputmode="decimal">
             </div>
           </div>
           <div class="dza-panel">
             <h4>Simulador</h4>
-            <p>Toca cualquier punto del mapa para ver qué pagaría un cliente ahí.</p>
+            
             <div id="dza-sim" class="dza-sim"><i class="ti ti-pointer"></i><div><b>Aún no has probado ningún punto</b><span>El resultado usa el mismo cálculo que la tienda.</span></div></div>
           </div>
         </div>
@@ -98,7 +98,7 @@
       target.style.display = mode === 'origen' ? '' : 'none';
       const missing = !origins().length;
       host.querySelector('#dza-hint').innerHTML = missing
-        ? `<div class="dza-hint"><i class="ti ti-alert-triangle"></i><div><b>Falta marcar el punto de despacho.</b> Elige "Mover punto de despacho" y toca en el mapa el lugar desde donde salen los pedidos. Hasta entonces la tienda cobra la tarifa única anterior.</div></div>` : '';
+        ? `<div class="dza-hint"><i class="ti ti-alert-triangle"></i><div><b>Falta marcar el punto de despacho.</b> Elige "Mover punto de despacho" y toca en el mapa el lugar desde donde salen los pedidos. Mientras falte, la tienda no ofrece delivery.</div></div>` : '';
     }
 
     async function reload(fit = false) {
@@ -115,8 +115,8 @@
       const ok = quote.covered !== false;
       sim.className = `dza-sim ${ok ? 'ok' : 'bad'}`;
       sim.innerHTML = ok
-        ? `<i class="ti ti-truck-delivery"></i><div><b>${esc(quote.zone_name)}</b><span>${quote.distance_km === null ? 'Tarifa única' : `A ${Number(quote.distance_km).toFixed(1)} km de ${esc(quote.origin_name)}`}</span></div><strong>${quote.total ? money(quote.total) : 'Gratis'}</strong>`
-        : `<i class="ti ti-map-pin-off"></i><div><b>Fuera de la zona de reparto</b><span>${esc(quote.description || '')}</span></div>`;
+        ? `<i class="ti ti-truck-delivery"></i><div><b>${esc(quote.zone_name)}</b><span>A ${Number(quote.distance_km || 0).toFixed(1)} km de ${esc(quote.origin_name)}</span></div><strong>${quote.total ? money(quote.total) : 'Gratis'}</strong>`
+        : `<i class="ti ti-map-pin-off"></i><div><b>${quote.unavailable ? 'Delivery sin configurar' : 'Fuera de la zona de reparto'}</b><span>${esc(quote.description || '')}</span></div>`;
     }
 
     await reload();

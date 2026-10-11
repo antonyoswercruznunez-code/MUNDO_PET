@@ -487,7 +487,7 @@ window.init_inventario = async function () {
     const result = await Swal.fire({
       title: 'Canales de venta',
       width: 590,
-      html: `<div style="text-align:left"><p style="color:#64748b;margin:0 0 14px">Controla por separado dónde puede venderse este producto transferido.</p>
+      html: `<div style="text-align:left">
         <label style="display:flex;align-items:center;gap:12px;padding:15px;border:1px solid #dbe7df;border-radius:12px;margin-bottom:10px;background:#f8fffa">
           <input id="inv-sale-panel" type="checkbox" ${Number(panelActual)===1?'checked':''} style="width:20px;height:20px"><span><b>Panel administrativo</b><small style="display:block;color:#64748b;margin-top:3px">Ventas y cotizaciones presenciales.</small></span>
         </label>

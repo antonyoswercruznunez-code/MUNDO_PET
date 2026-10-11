@@ -254,7 +254,7 @@ window.init_recojo = async function initRecojo() {
     const result=await Swal.fire({
       title:'Crear horarios para una semana',
       width:650,
-      html:`<div style="text-align:left;display:grid;gap:10px"><label>Fecha inicial<input id="sw-week-start" type="date" class="swal2-input" min="${today()}" value="${today()}"></label><div><b>Días incluidos</b><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px">${[['1','Lun'],['2','Mar'],['3','Mié'],['4','Jue'],['5','Vie'],['6','Sáb'],['0','Dom']].map(x=>`<label style="display:flex;gap:4px;align-items:center"><input class="sw-week-day" type="checkbox" value="${x[0]}" ${x[0]!=='0'?'checked':''}>${x[1]}</label>`).join('')}</div></div><small>Se usarán la sucursal, horario y cupos del formulario principal. Los duplicados se omiten.</small></div>`,
+      html:`<div style="text-align:left;display:grid;gap:10px"><label>Fecha inicial<input id="sw-week-start" type="date" class="swal2-input" min="${today()}" value="${today()}"></label><div><b>Días incluidos</b><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px">${[['1','Lun'],['2','Mar'],['3','Mié'],['4','Jue'],['5','Vie'],['6','Sáb'],['0','Dom']].map(x=>`<label style="display:flex;gap:4px;align-items:center"><input class="sw-week-day" type="checkbox" value="${x[0]}" ${x[0]!=='0'?'checked':''}>${x[1]}</label>`).join('')}</div></div></div>`,
       showCancelButton:true,confirmButtonText:'Crear semana',cancelButtonText:'Cancelar',
       preConfirm:()=>({fecha_inicio:document.getElementById('sw-week-start').value,dias:[...document.querySelectorAll('.sw-week-day:checked')].map(x=>Number(x.value))})
     });

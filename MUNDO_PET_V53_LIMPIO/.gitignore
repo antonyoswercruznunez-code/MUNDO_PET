@@ -41,3 +41,11 @@ storage/documents/*
 
 # Permisos locales de Claude Code en este equipo
 .claude/settings.local.json
+
+# Imágenes subidas desde el panel o la tienda (dependen de la base local;
+# los comprobantes de pago contienen datos de clientes)
+public/uploads/sliders/*
+public/uploads/productos/*
+public/uploads/pagos/*
+public/uploads/qr/*
+!public/uploads/**/.gitkeep

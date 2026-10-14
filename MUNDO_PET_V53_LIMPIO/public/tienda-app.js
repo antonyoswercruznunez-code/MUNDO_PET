@@ -553,7 +553,7 @@ const Tienda = {
     const tipo=document.getElementById('ck-tipo-doc').value;const doc=document.getElementById('ck-doc').value.replace(/\D/g,'');
     if(doc.length!==(tipo==='dni'?8:11))return this.toast('Documento inválido','err');
     const btn=document.getElementById('ck-doc-search');btn.disabled=true;
-    try{const r=await fetch(`${API}/documento?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc)}`,{credentials:'include'});const d=await r.json();if(!d.ok)return this.toast(d.msg||'No encontrado','err');this.docSnapshot=d.cliente;document.getElementById('ck-doc').disabled=true;document.getElementById('ck-tipo-doc').disabled=true;document.getElementById('ck-doc-result').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:#ecfdf5;border:1px solid #a7f3d0;padding:11px;border-radius:9px;color:#166534"><div><b><i class="ti ti-circle-check"></i> ${this.esc(d.cliente.nombre_completo||d.cliente.razon_social||d.cliente.nombre)}</b><div style="font-size:11px">Documento validado</div></div><button onclick="Tienda.limpiarDocumento()" title="Cambiar documento" style="border:0;background:transparent;color:#166534;font-size:20px;cursor:pointer"><i class="ti ti-x"></i></button></div>`;document.getElementById('ck-telefono').value=d.cliente.telefono||'';document.getElementById('ck-dep').value=d.cliente.departamento||'';document.getElementById('ck-prov').value=d.cliente.provincia||'';document.getElementById('ck-dist').value=d.cliente.distrito||'';{const dirInput=document.getElementById('ck-direccion');if(!dirInput.value.trim()||dirInput.dataset.auto==='1'){dirInput.value=d.cliente.direccion_api||'';dirInput.dataset.auto='1';}}if(this._entrega==='delivery')await this.cotizarDelivery();}finally{btn.disabled=false;}
+    try{const r=await fetch(`${API}/documento?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc)}`,{credentials:'include'});const d=await r.json();if(!d.ok)return this.toast(d.msg||'No encontrado','err');this.docSnapshot=d.cliente;document.getElementById('ck-doc').disabled=true;document.getElementById('ck-tipo-doc').disabled=true;document.getElementById('ck-doc-result').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:#ecfdf5;border:1px solid #a7f3d0;padding:11px;border-radius:9px;color:#166534"><div><b><i class="ti ti-circle-check"></i> ${this.esc(d.cliente.nombre_completo||d.cliente.razon_social||d.cliente.nombre)}</b><div style="font-size:11px">Documento validado</div></div><button onclick="Tienda.limpiarDocumento()" title="Cambiar documento" style="border:0;background:transparent;color:#166534;font-size:20px;cursor:pointer"><i class="ti ti-x"></i></button></div>`;{const tel=document.getElementById('ck-telefono');if(d.cliente.telefono||!tel.value.trim())tel.value=d.cliente.telefono||tel.value;const mail=document.getElementById('ck-email');if(mail&&d.cliente.email&&!mail.value.trim())mail.value=d.cliente.email;}document.getElementById('ck-dep').value=d.cliente.departamento||'';document.getElementById('ck-prov').value=d.cliente.provincia||'';document.getElementById('ck-dist').value=d.cliente.distrito||'';{const dirInput=document.getElementById('ck-direccion');if(!dirInput.value.trim()||dirInput.dataset.auto==='1'){dirInput.value=d.cliente.direccion_api||'';dirInput.dataset.auto='1';}}if(this._entrega==='delivery')await this.cotizarDelivery();}finally{btn.disabled=false;}
   },
   limpiarDocumento(){this.docSnapshot=null;const d=document.getElementById('ck-doc');const t=document.getElementById('ck-tipo-doc');d.disabled=false;t.disabled=false;d.value='';document.getElementById('ck-doc-result').innerHTML='';d.focus();},
   async confirmarPedido(){
@@ -602,16 +602,25 @@ const Tienda = {
           <button id="tab-reg" onclick="Tienda.switchAuth('reg')">Crear cuenta</button>
         </div>
         <div id="auth-login">
-          <div class="field"><label>Correo</label><input type="email" id="lg-email" placeholder="tucorreo@gmail.com"></div>
-          <div class="field"><label>Contraseña</label><input type="password" id="lg-pass" placeholder="••••••••"></div>
+          <div class="field"><label>Correo</label><input type="email" id="lg-email" placeholder="tucorreo@gmail.com" autocomplete="email"></div>
+          <div class="field"><label>Contraseña</label><input type="password" id="lg-pass" placeholder="••••••••" autocomplete="current-password"></div>
           <button class="btn-block" onclick="Tienda.doLogin()">Ingresar</button>
+          <button type="button" class="auth-link" onclick="Tienda.abrirRecuperar()">¿Olvidaste tu contraseña?</button>
         </div>
         <div id="auth-reg" style="display:none">
-          <div class="field"><label>Nombre completo</label><input id="rg-nombre" placeholder="Tu nombre"></div>
-          <div class="field"><label>Correo</label><input type="email" id="rg-email" placeholder="tucorreo@gmail.com"></div>
-          <div class="field"><label>Teléfono (opcional)</label><input id="rg-tel" placeholder="987654321"></div>
-          <div class="field"><label>Contraseña</label><input type="password" id="rg-pass" placeholder="Mínimo 8 caracteres, con letra y número"></div>
-          <button class="btn-block" onclick="Tienda.doRegistro()">Crear cuenta</button>
+          <div id="rg-paso1">
+            <div class="field"><label>Nombre y apellido</label><input id="rg-nombre" placeholder="Tu nombre completo" autocomplete="name"></div>
+            <div class="field"><label>Correo</label><input type="email" id="rg-email" placeholder="tucorreo@gmail.com" autocomplete="email"></div>
+            <div class="field"><label>Celular (opcional)</label><input id="rg-tel" inputmode="numeric" maxlength="9" placeholder="987654321" autocomplete="tel"></div>
+            <div class="field"><label>Contraseña</label><input type="password" id="rg-pass" placeholder="Mínimo 8 caracteres, con letra y número" autocomplete="new-password"></div>
+            <button class="btn-block" id="rg-enviar" onclick="Tienda.doRegistro()">Continuar</button>
+          </div>
+          <div id="rg-paso2" style="display:none">
+            <p class="auth-note">Escribe el código de 6 dígitos que enviamos a <b id="rg-email-ok"></b>.</p>
+            <div class="field"><label>Código</label><input id="rg-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" class="code-input"></div>
+            <button class="btn-block" onclick="Tienda.confirmarRegistro()">Crear cuenta</button>
+            <button type="button" class="auth-link" onclick="Tienda.doRegistro(true)">Reenviar código</button>
+          </div>
         </div>
         <div class="divider" id="gdiv">o continúa con</div>
         <div class="gbtn-wrap"><div id="gbtn"></div><div id="gfallback" style="display:none;color:var(--muted);font-size:13px;text-align:center">Google Login no configurado</div></div>
@@ -634,14 +643,66 @@ const Tienda = {
     if (!d.ok) return this.toast(d.msg, 'err');
     this.afterLogin(d.cliente);
   },
-  async doRegistro() {
+  async postAuth(path, body) {
+    try {
+      const r = await fetch(`${API}/auth/${path}`, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
+      return await r.json();
+    } catch (_) { return { ok:false, msg:'No hay conexión. Intenta de nuevo.' }; }
+  },
+  // Crear cuenta en dos pasos: datos → código enviado al correo.
+  async doRegistro(reenviar=false) {
     const nombre = document.getElementById('rg-nombre').value.trim();
-    const email = document.getElementById('rg-email').value.trim();
-    const telefono = document.getElementById('rg-tel').value.trim();
+    const email = document.getElementById('rg-email').value.trim().toLowerCase();
+    const telefono = document.getElementById('rg-tel').value.replace(/\D/g,'');
     const password = document.getElementById('rg-pass').value;
     if (!nombre || !email || !password) return this.toast('Completa los campos obligatorios', 'err');
-    const r = await fetch(`${API}/auth/registro`, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({nombre,email,telefono,password}) });
-    const d = await r.json();
+    const btn = document.getElementById('rg-enviar'); if (btn) btn.disabled = true;
+    const d = await this.postAuth('registro/codigo', {nombre,email,telefono,password});
+    if (btn) btn.disabled = false;
+    if (!d.ok) return this.toast(d.msg, 'err');
+    document.getElementById('rg-paso1').style.display = 'none';
+    document.getElementById('rg-paso2').style.display = 'block';
+    document.getElementById('rg-email-ok').textContent = email;
+    const code = document.getElementById('rg-codigo'); code.value = ''; code.focus();
+    this.toast(reenviar ? 'Te enviamos un nuevo código' : d.msg, 'ok');
+  },
+  async confirmarRegistro() {
+    const codigo = document.getElementById('rg-codigo').value.replace(/\D/g,'');
+    if (codigo.length !== 6) return this.toast('Escribe el código de 6 dígitos', 'err');
+    const d = await this.postAuth('registro', { email: document.getElementById('rg-email').value.trim().toLowerCase(), codigo });
+    if (!d.ok) return this.toast(d.msg, 'err');
+    this.afterLogin(d.cliente);
+  },
+  abrirRecuperar() {
+    const email = document.getElementById('lg-email')?.value.trim() || '';
+    document.getElementById('auth-login').innerHTML = `
+      <div id="rc-paso1">
+        <p class="auth-note">Te enviaremos un código a tu correo para crear una nueva contraseña.</p>
+        <div class="field"><label>Correo de tu cuenta</label><input type="email" id="rc-email" value="${this.esc(email)}" placeholder="tucorreo@gmail.com" autocomplete="email"></div>
+        <button class="btn-block" onclick="Tienda.pedirCodigoRecuperar()">Enviar código</button>
+      </div>
+      <div id="rc-paso2" style="display:none">
+        <div class="field"><label>Código</label><input id="rc-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" class="code-input"></div>
+        <div class="field"><label>Nueva contraseña</label><input type="password" id="rc-pass" placeholder="Mínimo 8 caracteres, con letra y número" autocomplete="new-password"></div>
+        <button class="btn-block" onclick="Tienda.confirmarRecuperar()">Guardar contraseña</button>
+      </div>
+      <button type="button" class="auth-link" onclick="Tienda.abrirAuth(Tienda._postLoginCheckout)">Volver a ingresar</button>`;
+  },
+  async pedirCodigoRecuperar() {
+    const email = document.getElementById('rc-email').value.trim().toLowerCase();
+    if (!email) return this.toast('Escribe tu correo', 'err');
+    const d = await this.postAuth('recuperar/codigo', { email });
+    if (!d.ok) return this.toast(d.msg, 'err');
+    document.getElementById('rc-paso1').style.display = 'none';
+    document.getElementById('rc-paso2').style.display = 'block';
+    this._rcEmail = email;
+    this.toast(d.msg, 'ok');
+  },
+  async confirmarRecuperar() {
+    const codigo = document.getElementById('rc-codigo').value.replace(/\D/g,'');
+    const password = document.getElementById('rc-pass').value;
+    if (codigo.length !== 6) return this.toast('Escribe el código de 6 dígitos', 'err');
+    const d = await this.postAuth('recuperar', { email: this._rcEmail, codigo, password });
     if (!d.ok) return this.toast(d.msg, 'err');
     this.afterLogin(d.cliente);
   },

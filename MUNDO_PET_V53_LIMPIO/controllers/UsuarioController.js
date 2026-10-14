@@ -198,6 +198,9 @@ const UsuarioController = {
     }
 
     const estadoFinal = parseInt(estado ?? 0, 10);
+    if (id === Number(sesion(req)?.id) && estadoFinal !== 0) {
+      return res.status(400).json({ ok: false, msg: 'No puedes desactivar tu propia cuenta.' });
+    }
     if (estadoFinal === 0) {
       const estadoPerfil = await UsuarioModel.getEstadoPerfil(+perfil_id);
       if (estadoPerfil && +estadoPerfil.estado !== 0) {
@@ -261,6 +264,10 @@ const UsuarioController = {
     const estado = +req.body.estado;
     if (id === ADMIN_PRINCIPAL_ID) {
       return res.json({ ok: false, msg: 'El administrador principal no puede modificarse.' });
+    }
+    // Nadie se desactiva a sí mismo: se quedaría fuera del sistema.
+    if (id === Number(sesion(req)?.id) && estado !== 0) {
+      return res.status(400).json({ ok: false, msg: 'No puedes desactivar tu propia cuenta.' });
     }
     const target=await usuarioEnAlcance(req,id);
     if(target===null)return res.status(404).json({ok:false,msg:'Usuario no encontrado'});

@@ -439,3 +439,9 @@ body { font-size: 14px; letter-spacing: -.003em; }
   .st-add { width: 32px; height: 32px; } .st-step { height: 32px; }
   .drawer { width: 100%; }
 }
+
+/* Cuenta: enlaces secundarios y código de verificación */
+.auth-link { display: block; margin: 12px auto 0; border: 0; background: none; color: var(--st-brand-deep); font-size: 13px; font-weight: 600; cursor: pointer; }
+.auth-link:hover { text-decoration: underline; }
+.auth-note { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--st-ink-2); }
+.code-input { text-align: center; font-size: 22px !important; font-weight: 700; letter-spacing: 10px; }

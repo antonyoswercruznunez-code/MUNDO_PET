@@ -286,22 +286,18 @@ const TiendaController = {
     let snapshot = null;
     let apiError = null;
 
-    // La identidad del comprador se consulta primero en la API oficial. La
-    // cuenta Google solo autentica el acceso a la tienda y nunca reemplaza al
-    // DNI/RUC. Si la API está temporalmente indisponible, se permite continuar
-    // únicamente cuando ya existe un cliente oficial activo en el ERP.
-    try {
-      snapshot = await consultarDocumentoApi(tipo, numero);
-    } catch (error) {
-      apiError = error;
-    }
-
-    if (!snapshot && existing && Number(existing.activo) !== 2) {
-      snapshot = normalizeSnapshot({
-        ...existing,
-        nombre_completo: existing.razon_social || [existing.nombre,existing.apellido_paterno,existing.apellido_materno].filter(Boolean).join(' '),
-        origen: 'cliente_erp_respaldo'
-      });
+    // Primero el registro de clientes: si el documento ya está registrado y
+    // activo se usan sus datos (incluidos teléfono y correo) sin gastar una
+    // consulta a MiAPI. Solo si no existe se consulta la API.
+    const nombreBd = existing ? (existing.razon_social || [existing.nombre,existing.apellido_paterno,existing.apellido_materno].filter(Boolean).join(' ')).trim() : '';
+    if (existing && Number(existing.activo) !== 2 && nombreBd) {
+      snapshot = normalizeSnapshot({ ...existing, nombre_completo: nombreBd, origen: 'cliente_erp' });
+    } else {
+      try {
+        snapshot = await consultarDocumentoApi(tipo, numero);
+      } catch (error) {
+        apiError = error;
+      }
     }
     if (!snapshot) throw apiError || new Error('No se pudo validar el documento');
 

@@ -109,8 +109,9 @@
         </div>
         <div style="grid-column:span 2">
           <label class="cfg-lbl">Contraseña de aplicación Gmail</label>
-          <div class="alert alert-info" style="margin:0">
-            <i class="ti ti-lock"></i> Por seguridad se configura únicamente en <code>MAIL_PASS</code> dentro del archivo <code>.env</code> del servidor.
+          <div class="cfg-secret" data-secret="mail_pass">
+            <input type="password" class="form-control" id="cfg-secret-mail_pass" readonly autocomplete="off" aria-label="Valor guardado">
+            <button type="button" class="btn btn-outline cfg-secret-eye" data-secret-toggle="mail_pass" title="Ver" hidden><i class="ti ti-eye"></i></button>
           </div>
         </div>
       </div>
@@ -146,8 +147,9 @@
         </div>
         <div style="grid-column:span 2">
           <label class="cfg-lbl">Token de MiAPI</label>
-          <div class="alert alert-info" style="margin:0">
-            <i class="ti ti-lock"></i> El token se configura únicamente en <code>MIAPI_TOKEN</code> dentro del archivo <code>.env</code> del VPS.
+          <div class="cfg-secret" data-secret="miapi_token">
+            <input type="password" class="form-control" id="cfg-secret-miapi_token" readonly autocomplete="off" aria-label="Valor guardado">
+            <button type="button" class="btn btn-outline cfg-secret-eye" data-secret-toggle="miapi_token" title="Ver" hidden><i class="ti ti-eye"></i></button>
           </div>
         </div>
       </div>

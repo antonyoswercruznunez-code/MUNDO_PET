@@ -51,7 +51,10 @@ router.post('/tienda/delivery-cotizar', Tienda.cotizarDelivery);
 router.get('/tienda/productos', Tienda.productos);
 router.get('/tienda/productos/:id/precio', Tienda.precioProducto);
 router.get('/tienda/productos/:id', Tienda.producto);
+router.post('/tienda/auth/registro/codigo', resetLimiter, TiendaAuth.registroCodigo);
 router.post('/tienda/auth/registro', loginLimiter, TiendaAuth.registro);
+router.post('/tienda/auth/recuperar/codigo', resetLimiter, TiendaAuth.recuperarCodigo);
+router.post('/tienda/auth/recuperar', loginLimiter, TiendaAuth.recuperar);
 router.post('/tienda/auth/login', loginLimiter, TiendaAuth.login);
 router.post('/tienda/auth/google', loginLimiter, TiendaAuth.google);
 router.get('/tienda/auth/session', TiendaAuth.session);
@@ -146,6 +149,7 @@ router.get('/pagos', auth, requirePermission('pedidos_web.ver'), PedidoWeb.list)
 
 // Configuración / catálogo
 router.get('/config', auth, requireAny('config.ver','tienda.gestionar'), Config.get);
+router.post('/config/secreto', auth, unlockLimiter, Config.verSecreto);
 router.post('/config', auth, requirePermission('config.gestionar'), Config.save);
 router.post('/config/medios-pago', auth, requirePermission('tienda.gestionar'), Config.savePaymentMethods);
 router.get('/config/delivery-zonas', auth, requirePermission('tienda.gestionar'), Config.deliveryZonas);

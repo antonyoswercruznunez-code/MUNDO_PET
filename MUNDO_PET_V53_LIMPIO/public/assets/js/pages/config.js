@@ -116,6 +116,30 @@ window.init_config = async function () {
     const modo = document.getElementById('cfg-sunat_modo');
     if (modo) modo.value = c.sunat_modo || 'beta';
 
+    // Claves del servidor: se muestran ocultas; solo un administrador global
+    // puede verlas, confirmando su contraseña.
+    const secretos = res.secretos || {};
+    [['mail_pass', secretos.mail_pass_env], ['miapi_token', secretos.miapi_token_env]].forEach(([key, configurado]) => {
+      const input = document.getElementById(`cfg-secret-${key}`);
+      const eye = document.querySelector(`[data-secret-toggle="${key}"]`);
+      if (!input) return;
+      input.type = 'password';
+      input.value = configurado ? '••••••••••••••••' : '';
+      input.placeholder = configurado ? '' : 'Sin configurar';
+      if (eye) {
+        eye.hidden = !(configurado && window._esGlobal);
+        eye.innerHTML = '<i class="ti ti-eye"></i>';
+        eye.onclick = async () => {
+          if (input.type === 'text') { input.type = 'password'; input.value = '••••••••••••••••'; eye.innerHTML = '<i class="ti ti-eye"></i>'; return; }
+          const auth = await Swal.fire({ title: 'Confirma tu contraseña', input: 'password', inputPlaceholder: 'Tu contraseña', showCancelButton: true, confirmButtonText: 'Ver', cancelButtonText: 'Cancelar' });
+          if (!auth.isConfirmed || !auth.value) return;
+          const r = await Http.post('/config/secreto', { clave: key, password: auth.value });
+          if (!r?.ok) return Swal.fire({ icon: 'error', title: 'No se pudo mostrar', text: r?.msg || '' });
+          input.type = 'text'; input.value = r.valor; eye.innerHTML = '<i class="ti ti-eye-off"></i>';
+        };
+      }
+    });
+
     renderLogos(res.logos || []);
     const sr = await Http.get('/sucursales');
     renderSucursales(sr?.sucursales || []);

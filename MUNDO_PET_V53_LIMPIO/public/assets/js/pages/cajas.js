@@ -427,6 +427,7 @@ window.init_cajas = async function () {
     if (!res?.ok) return;
 
     const sesiones = res.sesiones || [];
+    window._cajaHistorial = sesiones;
     const tabla = document.getElementById('historial-tabla');
 
     if (!sesiones.length) {
@@ -459,7 +460,9 @@ window.init_cajas = async function () {
       const difColor = !s.diferencia ? '' :
                        s.diferencia > 0 ? 'color:var(--success)' :
                        'color:var(--danger)';
-      const difMonto = s.diferencia ? fmt(Math.abs(s.diferencia)) : '—';
+      const difMonto = s.diferencia == null ? '—'
+        : Math.abs(s.diferencia) < 0.005 ? '<span style="color:var(--success)">Cuadrada</span>'
+        : `${fmt(Math.abs(s.diferencia))}<br><small style="font-weight:600">${s.diferencia < 0 ? 'Faltante' : 'Sobrante'}</small>`;
 
       const fechaApertura = s.abierta_at
         ? new Date(s.abierta_at).toLocaleString('es-PE', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' })
@@ -499,6 +502,27 @@ window.init_cajas = async function () {
   }
 
   window.filtrarHistorial = cargarHistorial;
+
+  // Excel con el detalle de cada cierre: medios de pago, arqueo y diferencia.
+  window.exportarHistorialCaja = function() {
+    const rows = window._cajaHistorial || [];
+    if (!rows.length) return alerta('info', 'Sin datos', 'No hay cierres para exportar con estos filtros.');
+    const fecha = v => v ? new Date(v).toLocaleString('es-PE', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+    const desde = document.getElementById('hist-desde')?.value, hasta = document.getElementById('hist-hasta')?.value;
+    MPExcel.exportTable({
+      title: 'Cierres de caja',
+      period: desde || hasta ? `Periodo: ${desde || '…'} al ${hasta || '…'}` : '',
+      columns: ['Código', 'Sucursal', 'Cajero', 'Apertura', 'Cierre', 'Estado', 'Operaciones', 'Efectivo', 'Yape', 'Plin', 'Transferencia', 'Tarjeta', 'Fondo inicial', 'Otros ingresos', 'Egresos', 'Esperado', 'Contado', 'Diferencia', 'Resultado', 'Motivo'],
+      rows: rows.map(s => {
+        const dif = s.diferencia == null ? null : Number(s.diferencia);
+        return [s.codigo, s.sucursal_nombre || '', s.cajero_nombre || '', fecha(s.abierta_at), fecha(s.cerrada_at), s.estado,
+          Number(s.operaciones || 0), Number(s.cobro_efectivo || 0), Number(s.cobro_yape || 0), Number(s.cobro_plin || 0), Number(s.cobro_transferencia || 0), Number(s.cobro_tarjeta || 0),
+          Number(s.monto_inicial || 0), Number(s.total_ingresos || 0), Number(s.total_egresos || 0), Number(s.esperado || 0),
+          s.monto_final == null ? '' : Number(s.monto_final), dif == null ? '' : dif,
+          dif == null ? 'Abierta' : Math.abs(dif) < 0.005 ? 'Cuadrada' : dif < 0 ? 'Faltante' : 'Sobrante', s.observacion || ''];
+      })
+    });
+  };
 
   window.verDetalleCaja = async function(id) {
     const res = await Http.get('/caja/' + id);

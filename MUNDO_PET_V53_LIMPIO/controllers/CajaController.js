@@ -250,6 +250,11 @@ const CajaController = {
 
     const totales = await CajaModel.totales(sesion.id);
     const arqueo = calcularArqueo(sesion, totales, monto_contado);
+    const motivo = String(req.body.observacion || '').trim();
+    if (Math.abs(arqueo.diferencia) >= 0.01 && motivo.length < 5) {
+      const tipo = arqueo.diferencia < 0 ? 'faltante' : 'sobrante';
+      return res.status(400).json({ ok: false, msg: `Hay un ${tipo} de S/ ${Math.abs(arqueo.diferencia).toFixed(2)}. Escribe el motivo antes de cerrar la caja.` });
+    }
     await CajaModel.cerrar(sesion.id, {
       monto_final: monto_contado,
       total_ventas: totales.total_ventas,

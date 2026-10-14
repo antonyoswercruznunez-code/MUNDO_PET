@@ -107,7 +107,7 @@ window.init_usuarios = async function () {
             ? `<span style="font-size:12px;color:var(--texto-muted)">Sin permiso</span>`
             : `<div style="display:flex;gap:6px;align-items:center">
                  <button class="btn btn-warning btn-xs" onclick="_editarUsuario(${u.id})" title="Editar"><i class="ti ti-edit"></i></button>
-                 <button class="btn ${activo ? 'btn-outline' : 'btn-success'} btn-xs" onclick="_toggleUsuario(${u.id},${activo ? 1 : 0})" title="${activo ? 'Desactivar' : 'Activar'}"><i class="ti ti-${activo ? 'user-off' : 'user-check'}"></i></button>
+                 ${Number(u.id) === Number(window._usuario?.id) ? '' : `<button class="btn ${activo ? 'btn-outline' : 'btn-success'} btn-xs" onclick="_toggleUsuario(${u.id},${activo ? 1 : 0})" title="${activo ? 'Desactivar' : 'Activar'}"><i class="ti ti-${activo ? 'user-off' : 'user-check'}"></i></button>`}
                  ${esPerfilAdmin ? '<span class="badge badge-muted">No eliminable</span>' : `<button class="btn btn-danger btn-xs" onclick="_eliminarUsuario(${u.id},'${u.nombre.replace(/'/g,"\'")}')" title="Eliminar"><i class="ti ti-trash"></i></button>`}
                </div>`;
 
@@ -253,6 +253,7 @@ window.init_usuarios = async function () {
       if (el) el.value = '';
     });
     document.getElementById('usr-estado').value = '0';
+    document.getElementById('usr-estado').disabled = false;
     document.getElementById('grupo-estado-usr').style.display  = 'none';
     document.getElementById('grupo-pass-crear').style.display  = 'block';
     document.getElementById('grupo-pass-editar').style.display = 'none';
@@ -478,6 +479,8 @@ window.init_usuarios = async function () {
     document.getElementById('usr-username').value   = u.username;
     document.getElementById('usr-email').value      = u.email || '';
     document.getElementById('usr-estado').value     = u.estado;
+    // La cuenta propia no se puede desactivar desde aquí.
+    document.getElementById('usr-estado').disabled = Number(u.id) === Number(window._usuario?.id);
     document.getElementById('usr-nueva-pass').value = '';
     document.getElementById('grupo-estado-usr').style.display  = 'block';
     document.getElementById('grupo-pass-crear').style.display  = 'none';

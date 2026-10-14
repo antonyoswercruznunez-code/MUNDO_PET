@@ -7,6 +7,8 @@ const MailService = require('../services/MailService');
 const DeliveryPricing = require('../services/DeliveryPricingService');
 
 const SECRET_KEYS = new Set(['mail_pass', 'miapi_token', 'sunat_clave_secreta']);
+const bcrypt = require('bcrypt');
+const SECRET_ENV = { mail_pass: 'MAIL_PASS', miapi_token: 'MIAPI_TOKEN' };
 const SAFE_KEY = /^[a-z0-9_]{2,100}$/;
 
 function publicConfigRows(rows) {
@@ -14,6 +16,21 @@ function publicConfigRows(rows) {
 }
 
 const ConfigController = {
+  // Muestra una clave del servidor. Solo administrador global y con su contraseña.
+  verSecreto: wrap(async (req, res) => {
+    const usuario = req.session.usuario;
+    if (!usuario?.es_global) return res.status(403).json({ ok: false, msg: 'Solo un administrador global puede ver esta clave.' });
+    const env = SECRET_ENV[String(req.body?.clave || '')];
+    if (!env) return res.status(400).json({ ok: false, msg: 'Clave no válida' });
+    const db = getDB();
+    const [[row]] = await db.query('SELECT password_hash FROM usuarios WHERE id=? AND estado=0 LIMIT 1', [usuario.id]);
+    if (!row || !(await bcrypt.compare(String(req.body?.password || ''), row.password_hash))) {
+      return res.status(401).json({ ok: false, msg: 'Contraseña incorrecta.' });
+    }
+    await Audit.log(req, { accion: 'secreto_visto', modulo: 'config', entidad: 'configuracion', descripcion: env }).catch(() => {});
+    res.json({ ok: true, valor: String(process.env[env] || '') });
+  }),
+
   get: wrap(async (req, res) => {
     const db = getDB();
     const [allRows] = await db.query('SELECT clave, valor, grupo FROM configuracion ORDER BY grupo, clave');

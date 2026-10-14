@@ -476,3 +476,9 @@ body .rep-btn-export { border-radius: 9px; font-weight: 600; }
 #btn-ubicacion[data-state="error"] { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 @keyframes mp-blink { 50% { opacity: .35; } }
 @media (max-width: 900px) { #btn-ubicacion span { display: none; } #btn-ubicacion { padding: 0 10px; } }
+
+/* ── Configuración: claves del servidor ─────────────────────────────── */
+.cfg-secret { display: flex; gap: 8px; }
+.cfg-secret input { flex: 1; background: color-mix(in srgb, #0ea5e9 9%, var(--input-bg, #fff)) !important; border-color: color-mix(in srgb, #0ea5e9 35%, var(--card-border)) !important; letter-spacing: .12em; cursor: default; }
+.cfg-secret input[type="text"] { letter-spacing: normal; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.cfg-secret-eye { width: 42px; padding: 0; display: grid; place-items: center; font-size: 17px; }

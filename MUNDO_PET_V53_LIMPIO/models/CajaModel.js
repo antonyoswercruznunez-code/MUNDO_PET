@@ -308,11 +308,25 @@ const CajaModel = {
              ${F_CONC} AS conciliada_at,
              u.nombre AS cajero_nombre,
              s.nombre AS sucursal_nombre,
-             cf.codigo AS caja_fisica_codigo
+             cf.codigo AS caja_fisica_codigo, cs.observacion,
+             COALESCE(pm.efectivo,0) cobro_efectivo, COALESCE(pm.yape,0) cobro_yape, COALESCE(pm.plin,0) cobro_plin,
+             COALESCE(pm.transferencia,0) cobro_transferencia, COALESCE(pm.tarjeta,0) cobro_tarjeta, COALESCE(pm.operaciones,0) operaciones
       FROM caja_sesiones cs
       LEFT JOIN usuarios u ON u.id = cs.usuario_id
       LEFT JOIN sucursales s ON s.id = cs.sucursal_id
       LEFT JOIN cajas_fisicas cf ON cf.id = cs.caja_fisica_id
+      LEFT JOIN (
+        SELECT x.sesion_id,
+               SUM(CASE WHEN LOWER(p.metodo)='efectivo' THEN p.monto ELSE 0 END) efectivo,
+               SUM(CASE WHEN LOWER(p.metodo)='yape' THEN p.monto ELSE 0 END) yape,
+               SUM(CASE WHEN LOWER(p.metodo)='plin' THEN p.monto ELSE 0 END) plin,
+               SUM(CASE WHEN LOWER(p.metodo)='transferencia' THEN p.monto ELSE 0 END) transferencia,
+               SUM(CASE WHEN LOWER(p.metodo) IN ('izipay','tarjeta') THEN p.monto ELSE 0 END) tarjeta,
+               COUNT(DISTINCT p.venta_id) operaciones
+          FROM (SELECT DISTINCT sesion_id, venta_id FROM caja_movimientos WHERE venta_id IS NOT NULL AND tipo='ingreso') x
+          JOIN pagos p ON p.venta_id = x.venta_id
+         GROUP BY x.sesion_id
+      ) pm ON pm.sesion_id = cs.id
       WHERE 1 = 1
     `;
     const params = [];

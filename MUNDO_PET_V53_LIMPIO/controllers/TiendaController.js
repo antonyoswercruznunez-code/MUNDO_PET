@@ -148,7 +148,7 @@ const TiendaController = {
       descripcion: cfg.tienda_descripcion || '',
       logo: logo?.ruta || null,
       whatsapp: cfg.ecommerce_whatsapp || '', facebook: cfg.tienda_facebook || '', instagram: cfg.tienda_instagram || '',
-      direccion: cfg.tienda_direccion || cfg.empresa_direccion || '', horario: cfg.tienda_horario || '',
+      direccion: cfg.tienda_direccion || cfg.empresa_direccion || '', horario: cfg.tienda_horario || '', email: cfg.tienda_email || cfg.empresa_email || '',
       delivery_activo: cfg.delivery_activo === 'true' && delivery.disponible, recojo_activo: cfg.recojo_activo === 'true',
       delivery_gratis_desde: Number(cfg.delivery_gratis_desde || 0),
       metodos_pago,
@@ -185,9 +185,11 @@ const TiendaController = {
                WHEN p.precio_venta>0 THEN ROUND((${seasonAmountExpr}/p.precio_venta)*100,2) ELSE 0 END AS descuento_aplicado,
              ROUND(CASE WHEN p.porcentaje_oferta>0
                THEN p.precio_venta*(1-LEAST(100,p.porcentaje_oferta)/100)
-               ELSE GREATEST(0,p.precio_venta-${seasonAmountExpr}) END,2) AS precio_final
+               ELSE GREATEST(0,p.precio_venta-${seasonAmountExpr}) END,2) AS precio_final,
+             COALESCE((SELECT SUM(vi.cantidad) FROM venta_items vi JOIN ventas v ON v.id=vi.venta_id
+               WHERE vi.producto_id=p.id AND v.estado_venta<>'anulada' AND v.created_at>=DATE_SUB(NOW(), INTERVAL 120 DAY)),0) AS vendidos
       FROM productos p LEFT JOIN sucursales s ON s.id=p.sucursal_id
-      WHERE p.estado=0 AND p.stock_actual>0
+      WHERE p.estado=0
         AND (COALESCE(p.es_transferido,0)=0 OR COALESCE(p.transferencia_venta_web,COALESCE(p.transferencia_venta_habilitada,1))=1)
     `;
     const params = [];
@@ -196,7 +198,8 @@ const TiendaController = {
     const orders = { precio_asc:'precio_final ASC', precio_desc:'precio_final DESC', nombre:'p.nombre ASC' };
     sql += ` ORDER BY ${orders[orden] || 'p.id DESC'} LIMIT 200`;
     const [rows] = await db.query(sql, params);
-    const disponibles = rows.filter(r => Number(r.stock_disponible) > 0);
+    rows.forEach(r => { r.vendidos = Number(r.vendidos || 0); r.agotado = Number(r.stock_disponible) <= 0; });
+    const disponibles = [...rows].sort((a, b) => Number(a.agotado) - Number(b.agotado));
     // En el catálogo general no se repite el mismo artículo por cada traslado.
     // Se prioriza su registro nativo; si solo existe transferido, se conserva el de mayor stock.
     let productos = disponibles;
@@ -205,7 +208,7 @@ const TiendaController = {
       for (const row of disponibles) {
         const key = `${String(row.nombre||'').trim().toLowerCase()}|${String(row.marca||'').trim().toLowerCase()}`;
         const actual = unicos.get(key);
-        if (!actual || (Number(actual.es_transferido) === 1 && Number(row.es_transferido) === 0) ||
+        if (!actual || (actual.agotado && !row.agotado) || (Number(actual.es_transferido) === 1 && Number(row.es_transferido) === 0) ||
             (Number(actual.es_transferido) === Number(row.es_transferido) && Number(row.stock_disponible) > Number(actual.stock_disponible))) {
           unicos.set(key, row);
         }
@@ -246,7 +249,7 @@ const TiendaController = {
     if (!p || !p.sucursal_id) return res.status(404).json({ ok: false, msg: 'Producto no disponible' });
     const [[reserved]] = await db.query("SELECT COALESCE(SUM(cantidad),0) qty FROM reservas_web WHERE producto_id=? AND sucursal_id=? AND estado='activa' AND expires_at>NOW()", [p.id,p.sucursal_id]);
     p.stock_disponible = Math.max(0, Number(p.stock_actual)-Number(reserved.qty||0));
-    if (p.stock_disponible <= 0) return res.status(404).json({ok:false,msg:'Producto sin stock disponible'});
+    p.agotado = p.stock_disponible <= 0;
     p.precio_final = await effectivePrice(db,p,1);
     p.descuento_aplicado = Number(p.precio_venta || 0) > 0
       ? Number((((Number(p.precio_venta) - Number(p.precio_final)) / Number(p.precio_venta)) * 100).toFixed(2))

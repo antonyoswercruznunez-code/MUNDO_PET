@@ -1784,7 +1784,7 @@ INSERT INTO `sucursales`
 (`id`,`nombre`,`direccion`,`estado`,`telefono`,`monto_inicial_caja`,`hora_apertura_caja`,`hora_cierre_caja`,`caja_configurada`,`max_cajas`) VALUES
 (1,'Gas','Av. Gas 100',0,'',0.00,'08:00:00','22:00:00',0,5),
 (2,'Bidones','Av. Bidones 200',0,'',0.00,'08:00:00','22:00:00',0,5),
-(3,'Sucursal de Acuarios','Av. Acuarios 300',0,'',0.00,'08:00:00','22:00:00',0,5);
+(3,'Acuarios','Av. Acuarios 300',0,'',0.00,'08:00:00','22:00:00',0,5);
 
 INSERT INTO `almacenes` (`id`,`sucursal_id`,`nombre`,`tipo`,`estado`) VALUES
 (1,1,'Almacén - Gas','sucursal',0),

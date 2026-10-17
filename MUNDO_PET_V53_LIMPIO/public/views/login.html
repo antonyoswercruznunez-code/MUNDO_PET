@@ -110,6 +110,13 @@
       .login-card{ padding:32px 22px; border-radius:14px; }
     }
   </style>
+<link rel="manifest" href="/manifest-panel.webmanifest">
+<meta name="theme-color" content="#15803d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mundo Pet Panel">
+<link rel="apple-touch-icon" href="/assets/img/app/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/assets/img/app/favicon-48.png">
 </head>
 <body>
 
@@ -331,5 +338,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<button id="btn-instalar" type="button" hidden style="position:fixed;right:18px;bottom:18px;z-index:5;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;color:#15803d;font:600 14px Inter,Segoe UI,sans-serif;cursor:pointer;box-shadow:0 10px 24px -14px rgba(15,23,42,.4)"><i class="ti ti-download"></i>Instalar app</button>
+<script src="/assets/js/core/pwa.js?v=1"></script>
+<script>MPApp.bind(document.getElementById('btn-instalar'));</script>
 </body>
 </html>

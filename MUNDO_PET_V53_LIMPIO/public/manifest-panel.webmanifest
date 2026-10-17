@@ -1,0 +1,21 @@
+{
+  "id": "/dashboard",
+  "name": "Mundo Pet · Panel",
+  "short_name": "Mundo Pet Panel",
+  "description": "Ventas, caja, inventario y reparto de Mundo Pet.",
+  "lang": "es-PE",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#15803d",
+  "icons": [
+    { "src": "/assets/img/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Ventas", "url": "/dashboard", "icons": [{ "src": "/assets/img/app/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

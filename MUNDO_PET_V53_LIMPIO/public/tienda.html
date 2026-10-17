@@ -208,6 +208,13 @@ footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid v
 @media(max-width:520px){.qty input{width:52px}.cart-item{grid-template-columns:58px 1fr auto}.cart-item img{width:58px;height:58px}}
 </style>
 <link href="/assets/css/tienda.css?v=54.1.0" rel="stylesheet">
+<link rel="manifest" href="/manifest-tienda.webmanifest">
+<meta name="theme-color" content="#15803d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mundo Pet">
+<link rel="apple-touch-icon" href="/assets/img/app/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/assets/img/app/favicon-48.png">
 </head>
 <body>
 <header class="rc-header" id="st-header">
@@ -224,6 +231,7 @@ footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid v
     </form>
     <div class="rc-actions" style="position:relative">
       <button class="rc-square rc-user" id="btn-user" aria-label="Mi cuenta"><i class="ti ti-user"></i><span id="user-label">Ingresar</span></button>
+      <button class="rc-square rc-install" id="btn-instalar" aria-label="Instalar app" hidden><i class="ti ti-download"></i><span>Instalar app</span></button>
       <button class="rc-square rc-orders" id="btn-orders" aria-label="Mis pedidos" onclick="Tienda.verPedidos()" hidden><i class="ti ti-package"></i><span>Mis pedidos</span></button>
       <button class="rc-square rc-cart" id="btn-cart" aria-label="Abrir carrito"><i class="ti ti-shopping-cart"></i><span class="rc-badge" id="cart-badge">0</span></button>
       <div id="st-menu-host"></div>
@@ -312,5 +320,7 @@ footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid v
 <script src="/tienda-app.js?v=54.1.0"></script>
 <script src="/tienda-ui.js?v=54.1.0"></script>
 <script src="/tienda-pedidos.js?v=54.1.0"></script>
+<script src="/assets/js/core/pwa.js?v=1"></script>
+<script>MPApp.bind(document.getElementById('btn-instalar'));</script>
 </body>
 </html>

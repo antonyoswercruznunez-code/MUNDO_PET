@@ -40,6 +40,13 @@
     .loading { padding: 40px 0; color: var(--muted); font-size: 14px; }
     @media (max-width: 420px) { .card { padding: 28px 18px 22px; } .code input { width: 40px; height: 50px; font-size: 21px; } }
   </style>
+<link rel="manifest" href="/manifest-panel.webmanifest">
+<meta name="theme-color" content="#15803d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mundo Pet Panel">
+<link rel="apple-touch-icon" href="/assets/img/app/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/assets/img/app/favicon-48.png">
 </head>
 <body>
   <main class="card" id="card">
@@ -151,5 +158,6 @@
   load();
 })();
 </script>
+<script src="/assets/js/core/pwa.js?v=1"></script>
 </body>
 </html>

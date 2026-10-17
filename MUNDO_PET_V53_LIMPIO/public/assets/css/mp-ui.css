@@ -482,3 +482,10 @@ body .rep-btn-export { border-radius: 9px; font-weight: 600; }
 .cfg-secret input { flex: 1; background: color-mix(in srgb, #0ea5e9 9%, var(--input-bg, #fff)) !important; border-color: color-mix(in srgb, #0ea5e9 35%, var(--card-border)) !important; letter-spacing: .12em; cursor: default; }
 .cfg-secret input[type="text"] { letter-spacing: normal; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
 .cfg-secret-eye { width: 42px; padding: 0; display: grid; place-items: center; font-size: 17px; }
+
+/* ── Instalar app (barra superior) ──────────────────────────────────── */
+#btn-instalar { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--texto); font: 600 13px/1 inherit; cursor: pointer; }
+#btn-instalar[hidden] { display: none; }
+#btn-instalar i { font-size: 17px; color: var(--mpc-accent); }
+#btn-instalar:hover { border-color: var(--mpc-accent); color: var(--mpc-accent); }
+@media (max-width: 900px) { #btn-instalar span { display: none; } #btn-instalar { padding: 0 10px; } }

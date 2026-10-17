@@ -9,7 +9,14 @@
 (function () {
   const KEY = 'mp_compartir_ubicacion';
   const EVERY_MS = 60000, MOVED_M = 80;
-  let watchId = null, lastSent = 0, lastPoint = null, button = null;
+  let watchId = null, lastSent = 0, lastPoint = null, button = null, wakeLock = null;
+
+  // Mientras se comparte la ubicación, la pantalla no se apaga sola: si el
+  // celular se bloquea, el navegador deja de enviar la posición.
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (_) { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (watchId !== null && document.visibilityState === 'visible') keepAwake(); });
 
   const meters = (a, b) => (window.MPMap ? MPMap.distanceKm(a, b) * 1000 : 0);
   const stored = () => { try { return localStorage.getItem(KEY) === '1'; } catch (_) { return false; } };
@@ -40,6 +47,7 @@
     stop(false);
     store(true);
     paint('on', 'Obteniendo tu ubicación…');
+    keepAwake();
     watchId = navigator.geolocation.watchPosition(send, error => {
       paint('error', 'No se pudo obtener la ubicación');
       if (error.code === error.PERMISSION_DENIED) {
@@ -52,6 +60,7 @@
   function stop(forget) {
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null; lastPoint = null; lastSent = 0;
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (forget) store(false);
     paint('off', 'Comparte tu ubicación con el supervisor mientras repartes');
   }

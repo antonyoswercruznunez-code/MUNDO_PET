@@ -317,6 +317,9 @@ app.use(
       maxAge: isProd ? '1d' : 0,
 
       setHeaders(res, filePath) {
+        if (filePath.endsWith('sw.js') || filePath.endsWith('.webmanifest')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
         if (filePath.endsWith('.html')) {
           res.setHeader(
             'Cache-Control',

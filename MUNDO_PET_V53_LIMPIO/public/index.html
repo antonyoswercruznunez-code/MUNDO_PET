@@ -154,6 +154,13 @@
       text-overflow: ellipsis;
     }
   </style>
+<link rel="manifest" href="/manifest-panel.webmanifest">
+<meta name="theme-color" content="#15803d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mundo Pet Panel">
+<link rel="apple-touch-icon" href="/assets/img/app/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/assets/img/app/favicon-48.png">
 </head>
 <body>
 <div id="app">
@@ -172,6 +179,7 @@
       <div class="topbar-breadcrumb"><strong id="breadcrumb-titulo">Dashboard</strong></div>
     </div>
     <div class="topbar-right">
+      <button id="btn-instalar" type="button" hidden title="Instalar Mundo Pet como aplicación"><i class="ti ti-device-desktop-down"></i><span>Instalar app</span></button>
       <a id="btn-ver-tienda" href="/tienda" target="_blank" rel="noopener" title="Abrir la tienda web en otra pestaña"><i class="ti ti-building-store"></i><span>Ver tienda</span></a>
       <button id="btn-tema" title="Cambiar tema"><i class="ti ti-moon"></i></button>
       <div class="topbar-avatar" id="topbar-avatar">A</div>
@@ -239,5 +247,7 @@
   setTimeout(pintaIcono,300);
 })();
 </script>
+<script src="/assets/js/core/pwa.js?v=1"></script>
+<script>MPApp.bind(document.getElementById('btn-instalar'));</script>
 </body>
 </html>

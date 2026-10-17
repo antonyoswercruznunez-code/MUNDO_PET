@@ -445,6 +445,15 @@ async function ensureSchema(db, projectRoot) {
     changes.push('tabla delivery_zonas');
   }
 
+  // Verificación en dos pasos (Authenticator) para todos los usuarios del panel.
+  for (const [column, definition] of [
+    ['clave_secreta_2fa', 'VARCHAR(255) NULL'],
+    ['doble_factor_activo', 'TINYINT NOT NULL DEFAULT 0'],
+    ['doble_factor_paso', 'BIGINT NULL']
+  ]) {
+    if (await addColumn(db, 'usuarios', column, definition)) changes.push(`usuarios.${column}`);
+  }
+
   // Mapa en vivo: puntos que comparte quien reparte.
   if (!(await tableExists(db, 'usuario_ubicaciones'))) {
     await db.query(`CREATE TABLE usuario_ubicaciones (

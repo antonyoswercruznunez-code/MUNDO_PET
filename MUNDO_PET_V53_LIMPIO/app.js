@@ -447,6 +447,9 @@ app.get(
     if (!req.session?.usuario) {
       return res.redirect('/login');
     }
+    if (req.session.mfa_ok !== true) {
+      return res.redirect('/verificar-2fa');
+    }
 
     res.setHeader('Cache-Control', 'no-store');
     return res.sendFile(
@@ -456,6 +459,16 @@ app.get(
         'index.html'
       )
     );
+  }
+);
+
+app.get(
+  '/verificar-2fa',
+  (req, res) => {
+    if (!req.session?.usuario) return res.redirect('/login');
+    if (req.session.mfa_ok === true) return res.redirect('/dashboard');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.sendFile(path.join(__dirname, 'public', 'views', 'verificar-2fa.html'));
   }
 );
 

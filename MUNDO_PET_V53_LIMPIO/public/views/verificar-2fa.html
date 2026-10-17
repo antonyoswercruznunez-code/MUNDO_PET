@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Verificación en dos pasos · Mundo Pet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --verde:#16A34A; --verde-d:#15803D; --texto:#0F172A; --muted:#64748B; --linea:#E2E8F0; --bg:#F1F5F9; }
+    body { font-family: 'Inter','Segoe UI',system-ui,sans-serif; background: var(--bg); color: var(--texto); min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+    .card { width: 100%; max-width: 440px; background: #fff; border: 1px solid var(--linea); border-radius: 18px; padding: 36px 32px 28px; box-shadow: 0 24px 60px rgba(15,23,42,.14); text-align: center; animation: in .4s ease both; }
+    @keyframes in { from { opacity: 0; transform: translateY(10px); } }
+    .shield { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 18px; display: grid; place-items: center; background: #dcfce7; color: var(--verde-d); font-size: 34px; }
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+    .who { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .steps { margin: 20px 0 0; text-align: left; display: grid; gap: 10px; }
+    .step { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 13.5px; line-height: 1.45; color: #334155; }
+    .step b { color: var(--texto); }
+    .step span.n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--verde); color: #fff; font-size: 12px; font-weight: 700; }
+    .qr { margin: 18px auto 6px; width: 212px; padding: 12px; border: 1px solid var(--linea); border-radius: 14px; background: #fff; }
+    .qr img { display: block; width: 100%; height: auto; }
+    .manual { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+    .manual summary { cursor: pointer; color: var(--verde-d); font-weight: 600; list-style: none; }
+    .manual code { display: inline-block; margin-top: 8px; padding: 6px 10px; border-radius: 8px; background: #f8fafc; border: 1px solid var(--linea); font: 600 13px/1.4 ui-monospace, Consolas, monospace; color: var(--texto); letter-spacing: .04em; }
+    .lead { margin-top: 16px; font-size: 14px; color: #334155; }
+    .code { display: flex; justify-content: center; gap: 8px; margin: 18px 0 6px; }
+    .code input { width: 46px; height: 56px; border: 1.5px solid var(--linea); border-radius: 12px; text-align: center; font: 700 24px/1 'Inter','Segoe UI',sans-serif; color: var(--texto); outline: none; transition: border-color .15s, box-shadow .15s; }
+    .code input:focus { border-color: var(--verde); box-shadow: 0 0 0 4px rgba(22,163,74,.14); }
+    .code.error input { border-color: #dc2626; animation: shake .35s; }
+    @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    .msg { min-height: 20px; font-size: 13px; color: #dc2626; margin-top: 4px; }
+    .btn { width: 100%; height: 46px; margin-top: 12px; border: 0; border-radius: 11px; background: var(--verde); color: #fff; font: 600 15px/1 'Inter','Segoe UI',sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background .15s; }
+    .btn:hover { background: var(--verde-d); }
+    .btn:disabled { opacity: .65; cursor: default; }
+    .out { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+    .out:hover { color: var(--texto); }
+    .loading { padding: 40px 0; color: var(--muted); font-size: 14px; }
+    @media (max-width: 420px) { .card { padding: 28px 18px 22px; } .code input { width: 40px; height: 50px; font-size: 21px; } }
+  </style>
+</head>
+<body>
+  <main class="card" id="card">
+    <div class="shield"><i class="ti ti-shield-check"></i></div>
+    <h1>Verificación en dos pasos</h1>
+    <p class="who" id="who"></p>
+    <div id="body" class="loading">Cargando…</div>
+  </main>
+
+<script>
+(() => {
+  const body = document.getElementById('body');
+  let csrf = '';
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  async function api(method, payload) {
+    const res = await fetch('/api/auth/2fa', {
+      method, credentials: 'include',
+      headers: { ...(payload ? { 'Content-Type': 'application/json' } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+      body: payload ? JSON.stringify(payload) : undefined
+    });
+    const data = await res.json().catch(() => ({ ok: false, msg: 'Respuesta inválida del servidor' }));
+    if (data.code === 'UNAUTHORIZED' || data.code === 'SESSION_INVALID' || data.code === 'SESSION_EXPIRED') {
+      if (data.msg && data.code === 'SESSION_INVALID') alert(data.msg);
+      window.location.href = '/login';
+      return null;
+    }
+    return data;
+  }
+
+  function codeInputs() {
+    return `<div class="code" id="code">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Dígito ${i + 1}">`).join('')}</div>
+      <div class="msg" id="msg" role="alert"></div>
+      <button class="btn" id="go"><i class="ti ti-circle-check"></i> Verificar</button>`;
+  }
+
+  function wire() {
+    const boxes = [...document.querySelectorAll('#code input')];
+    const value = () => boxes.map(b => b.value).join('');
+    boxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        const digits = box.value.replace(/\D/g, '');
+        if (digits.length > 1) {                       // pegó el código completo
+          digits.slice(0, 6).split('').forEach((d, k) => { if (boxes[k]) boxes[k].value = d; });
+          boxes[Math.min(5, digits.length - 1)].focus();
+        } else {
+          box.value = digits;
+          if (digits && boxes[i + 1]) boxes[i + 1].focus();
+        }
+        if (value().length === 6) submit();
+      });
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !box.value && boxes[i - 1]) { boxes[i - 1].focus(); boxes[i - 1].value = ''; }
+        if (e.key === 'Enter') submit();
+      });
+      box.addEventListener('paste', e => {
+        const text = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        if (!text) return;
+        e.preventDefault();
+        text.split('').forEach((d, k) => { if (boxes[k]) boxes[k].value = d; });
+        if (text.length === 6) submit(); else boxes[text.length].focus();
+      });
+    });
+    boxes[0].focus();
+    let busy = false;
+    async function submit() {
+      const codigo = value();
+      const msg = document.getElementById('msg'), wrap = document.getElementById('code'), go = document.getElementById('go');
+      if (codigo.length !== 6) { msg.textContent = 'Escribe los 6 dígitos'; return; }
+      if (busy) return;
+      busy = true; go.disabled = true; go.innerHTML = '<i class="ti ti-loader-2"></i> Verificando…'; msg.textContent = '';
+      const data = await api('POST', { codigo });
+      busy = false;
+      if (!data) return;
+      if (data.ok) { go.innerHTML = '<i class="ti ti-check"></i> Listo'; window.location.href = data.redirect || '/dashboard'; return; }
+      go.disabled = false; go.innerHTML = '<i class="ti ti-circle-check"></i> Verificar';
+      msg.textContent = data.msg || 'Código incorrecto';
+      wrap.classList.remove('error'); void wrap.offsetWidth; wrap.classList.add('error');
+      boxes.forEach(b => { b.value = ''; }); boxes[0].focus();
+    }
+    document.getElementById('go').onclick = submit;
+  }
+
+  async function load() {
+    const data = await api('GET');
+    if (!data) return;
+    if (data.verificado) { window.location.href = '/dashboard'; return; }
+    if (!data.ok) { body.innerHTML = `<p class="msg">${esc(data.msg || 'No se pudo cargar la verificación')}</p>`; return; }
+    csrf = data.csrfToken || '';
+    document.getElementById('who').textContent = `${data.usuario?.nombre || ''} · @${data.usuario?.username || ''}`;
+    body.className = '';
+    body.innerHTML = data.configurando
+      ? `<div class="steps">
+           <div class="step"><span class="n">1</span><div>Instala <b>Microsoft Authenticator</b> o <b>Google Authenticator</b> en tu celular.</div></div>
+           <div class="step"><span class="n">2</span><div>En la app, toca <b>+</b> y escanea este código QR.</div></div>
+           <div class="step"><span class="n">3</span><div>Escribe el código de 6 dígitos que aparece en la app.</div></div>
+         </div>
+         <div class="qr"><img src="${data.qr}" alt="Código QR para el Authenticator" width="212" height="212"></div>
+         <details class="manual"><summary>¿No puedes escanear? Escribe la clave</summary><code>${esc(data.clave)}</code></details>
+         ${codeInputs()}`
+      : `<p class="lead">Abre tu app <b>Authenticator</b> y escribe el código de 6 dígitos de <b>MUNDO PET</b>.</p>${codeInputs()}`;
+    wire();
+  }
+
+  const out = document.createElement('button');
+  out.className = 'out'; out.innerHTML = '<i class="ti ti-logout"></i> Cancelar y salir';
+  out.onclick = async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include', headers: csrf ? { 'X-CSRF-Token': csrf } : {} }).catch(() => {}); window.location.href = '/login'; };
+  document.getElementById('card').appendChild(out);
+  load();
+})();
+</script>
+</body>
+</html>

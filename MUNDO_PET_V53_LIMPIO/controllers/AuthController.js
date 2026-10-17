@@ -1,3 +1,5 @@
+const TwoFactor = require('../services/TwoFactorService');
+const MAX_MFA_FAILS = 5;
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { getDB } = require('../config/database');
@@ -181,6 +183,9 @@ const AuthController = {
     req.session.usuario = sesion;
     req.session.opciones = opciones;
     req.session.permisos = permisos;
+    // La contraseña es el primer paso; el panel se abre con el código del Authenticator.
+    req.session.mfa_ok = false;
+    req.session.mfa_fails = 0;
     req.session.login_at = Date.now();
     req.session.last_user_activity_at = Date.now();
     req.session.locked = false;
@@ -191,7 +196,34 @@ const AuthController = {
                     VALUES (?,?,?,?,1,'ok')`, [usuario.id, username, Audit.clientIp(req), String(req.get('user-agent') || '').slice(0, 500)]);
     await Audit.log(req, { accion: 'login_exitoso', modulo: 'auth', entidad: 'usuario', entidad_id: usuario.id });
 
-    res.json({ ok: true, usuario: sesion, opciones, permisos, csrfToken });
+    res.json({ ok: true, mfa: true, redirect: '/verificar-2fa', usuario: { nombre: sesion.nombre }, csrfToken });
+  }),
+
+  // Pantalla del segundo paso: QR la primera vez, luego solo el código.
+  mfaEstado: wrap(async (req, res) => {
+    if (req.session.mfa_ok === true) return res.json({ ok: true, verificado: true });
+    const data = await TwoFactor.screen(req.session.usuario.id);
+    res.json({ ok: true, verificado: false, usuario: { nombre: req.session.usuario.nombre, username: req.session.usuario.username }, csrfToken: ensureCsrf(req), ...data });
+  }),
+
+  mfaVerificar: wrap(async (req, res) => {
+    if (req.session.mfa_ok === true) return res.json({ ok: true, redirect: '/dashboard' });
+    const ok = await TwoFactor.verify(req.session.usuario.id, req.body?.codigo);
+    if (!ok) {
+      const fails = Number(req.session.mfa_fails || 0) + 1;
+      await Audit.log(req, { accion: 'mfa_fallido', modulo: 'auth', entidad: 'usuario', entidad_id: req.session.usuario.id });
+      if (fails >= MAX_MFA_FAILS) {
+        return req.session.destroy(() => res.status(401).json({ ok: false, code: 'SESSION_INVALID', msg: 'Demasiados códigos incorrectos. Inicia sesión nuevamente.' }));
+      }
+      req.session.mfa_fails = fails;
+      const left = MAX_MFA_FAILS - fails;
+      return res.status(400).json({ ok: false, code: 'MFA_INVALID', msg: `Código incorrecto. ${left === 1 ? 'Queda 1 intento' : `Quedan ${left} intentos`}.` });
+    }
+    req.session.mfa_ok = true;
+    req.session.mfa_fails = 0;
+    req.session.last_user_activity_at = Date.now();
+    await Audit.log(req, { accion: 'mfa_verificado', modulo: 'auth', entidad: 'usuario', entidad_id: req.session.usuario.id });
+    res.json({ ok: true, redirect: '/dashboard' });
   }),
 
   logout(req, res) {
@@ -199,7 +231,7 @@ const AuthController = {
     const keepWebSession = !!req.session?.clienteWeb;
     for (const key of [
       'usuario','opciones','permisos','login_at','last_user_activity_at',
-      'locked','locked_at','user_checked_at','csrfToken'
+      'locked','locked_at','user_checked_at','csrfToken','mfa_ok','mfa_fails'
     ]) delete req.session[key];
 
     if (keepWebSession) {

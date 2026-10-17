@@ -47,6 +47,10 @@ const Http = {
       // Un 401 también puede significar PIN, contraseña o credencial de una
       // operación incorrecta. Solo cerrar la pantalla cuando el backend
       // confirme que la sesión realmente terminó o quedó inválida.
+      if (String(data?.code || '') === 'MFA_REQUIRED') {
+        window.location.href = '/verificar-2fa';
+        return null;
+      }
       if (['UNAUTHORIZED','SESSION_INVALID','SESSION_EXPIRED'].includes(String(data?.code || ''))) {
         window.location.href = '/login';
         return null;

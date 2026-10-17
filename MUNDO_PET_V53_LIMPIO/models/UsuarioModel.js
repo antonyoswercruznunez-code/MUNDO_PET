@@ -12,6 +12,7 @@ const UsuarioModel = {
                WHEN u.pin_cajero_hash IS NULL OR u.pin_cajero_hash = '' THEN 0
                ELSE 1
              END AS tiene_pin_cajero,
+             COALESCE(u.doble_factor_activo,0) AS doble_factor_activo,
              p.nombre AS perfil_nombre,
              p.estado AS perfil_estado,
              s.nombre AS sucursal_nombre

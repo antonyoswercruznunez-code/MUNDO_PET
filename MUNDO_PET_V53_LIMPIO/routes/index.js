@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { rateLimit } = require('express-rate-limit');
-const { auth, authAllowLocked, unlock, activity } = require('../middleware/auth');
+const { auth, authAllowLocked, authPendingMfa, unlock, activity } = require('../middleware/auth');
 const { requirePermission, requireAny } = require('../middleware/permisos');
 const upload = require('../middleware/upload');
 const { authWeb } = require('../middleware/authWeb');
@@ -43,7 +43,9 @@ router.post('/auth/reset-password', resetLimiter, Auth.resetPassword);
 router.get('/auth/session', authAllowLocked, Auth.session);
 router.post('/auth/unlock', unlockLimiter, authAllowLocked, unlock);
 router.post('/auth/activity', auth, activity);
-router.post('/auth/logout', authAllowLocked, Auth.logout);
+router.post('/auth/logout', authPendingMfa, Auth.logout);
+router.get('/auth/2fa', authPendingMfa, Auth.mfaEstado);
+router.post('/auth/2fa', unlockLimiter, authPendingMfa, Auth.mfaVerificar);
 
 // Ecommerce público
 router.get('/tienda/config', Tienda.config);
@@ -78,6 +80,7 @@ router.post('/usuarios', auth, requirePermission('usuarios.gestionar'), Usuario.
 router.put('/usuarios/:id', auth, requirePermission('usuarios.gestionar'), Usuario.update);
 router.delete('/usuarios/:id', auth, requirePermission('usuarios.gestionar'), Usuario.remove);
 router.patch('/usuarios/:id/estado', auth, requirePermission('usuarios.gestionar'), Usuario.toggleEstado);
+router.patch('/usuarios/:id/2fa-reset', auth, unlockLimiter, requirePermission('usuarios.gestionar'), Usuario.resetDobleFactor);
 router.get('/perfiles', auth, requirePermission('perfiles.ver'), Perfil.list);
 router.post('/perfiles', auth, requirePermission('perfiles.gestionar'), Perfil.create);
 router.put('/perfiles/:id', auth, requirePermission('perfiles.gestionar'), Perfil.update);

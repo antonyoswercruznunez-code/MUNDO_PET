@@ -51,10 +51,13 @@ function setLockIfIdle(req) {
   return req.session.locked ? 'locked' : 'ok';
 }
 
-async function authBase(req, res, next, allowLocked = false) {
+async function authBase(req, res, next, allowLocked = false, allowPendingMfa = false) {
   try {
     if (!req.session?.usuario) {
       return res.status(401).json({ ok: false, code: 'UNAUTHORIZED', msg: 'No autorizado' });
+    }
+    if (!allowPendingMfa && req.session.mfa_ok !== true) {
+      return res.status(401).json({ ok: false, code: 'MFA_REQUIRED', msg: 'Falta la verificación en dos pasos' });
     }
     if (!(await validateLiveUser(req))) {
       return req.session.destroy(() => res.status(401).json({ ok: false, code: 'SESSION_INVALID', msg: 'La sesión ya no es válida' }));
@@ -74,6 +77,8 @@ async function authBase(req, res, next, allowLocked = false) {
 
 const auth = (req, res, next) => authBase(req, res, next, false);
 const authAllowLocked = (req, res, next) => authBase(req, res, next, true);
+// Solo para la pantalla del código y para cerrar sesión.
+const authPendingMfa = (req, res, next) => authBase(req, res, next, true, true);
 
 const soloAdmin = (req, res, next) => {
   const u = req.session?.usuario;
@@ -122,4 +127,4 @@ function activity(req, res) {
   res.status(204).end();
 }
 
-module.exports = { auth, authAllowLocked, soloAdmin, unlock, activity, LOCK_MINUTES, MAX_HOURS };
+module.exports = { auth, authAllowLocked, authPendingMfa, soloAdmin, unlock, activity, LOCK_MINUTES, MAX_HOURS };

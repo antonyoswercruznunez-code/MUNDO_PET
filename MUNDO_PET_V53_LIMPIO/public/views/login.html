@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (data.ok) {
         btn.innerHTML = '<i class="ti ti-check"></i> Redirigiendo...';
-        setTimeout(() => window.location.href = '/dashboard', 600);
+        setTimeout(() => window.location.href = data.redirect || '/verificar-2fa', 400);
       } else {
         msgTxt.textContent = data.msg || 'Credenciales incorrectas';
         msgError.style.display = 'flex';

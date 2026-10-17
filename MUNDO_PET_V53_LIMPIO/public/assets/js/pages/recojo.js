@@ -15,21 +15,33 @@ window.init_recojo = async function initRecojo() {
     : status === 'incidencia' ? 'badge-danger'
       : status === 'listo' || status === 'en_ruta' ? 'badge-info' : 'badge-warning';
   let rows = [];
+  let allRows = [];
   let scheduleRows = [];
+  let stageFilter = 'activos';
+  const queue = {
+    state: r => r.estado,
+    created: r => r.pedido_created_at || r.created_at,
+    due: r => r.tipo_entrega === 'recojo' && r.recojo_fecha ? `${r.recojo_fecha}T${r.recojo_hora_inicio || '00:00'}` : null,
+    order: r => r.numero_orden || r.pedido_id,
+    branch: r => r.sucursal_nombre
+  };
 
   async function load() {
     const query = new URLSearchParams();
-    const estado = document.getElementById('rc-estado').value;
+    const estado = '';
     const tipo = document.getElementById('rc-tipo').value;
     const buscar = document.getElementById('rc-buscar').value.trim();
     if (estado) query.set('estado', estado);
     if (tipo) query.set('tipo', tipo);
     if (buscar) query.set('buscar', buscar);
     const response = await Http.get(`/recojo?${query}`);
-    rows = (response?.entregas || []).sort((a, b) => {
-      const byDate = new Date(b.pedido_created_at || b.created_at || 0).getTime() - new Date(a.pedido_created_at || a.created_at || 0).getTime();
-      return byDate || Number(b.pedido_id || b.id || 0) - Number(a.pedido_id || a.id || 0);
-    });
+    allRows = MPQueue.sort(response?.entregas || [], queue);
+    const branchSel = document.getElementById('rc-sucursal');
+    const branches = [...new Map(allRows.map(r => [String(r.sucursal_id), r.sucursal_nombre])).entries()];
+    const keep = branchSel.value;
+    branchSel.innerHTML = '<option value="">Todas las sucursales</option>' + branches.map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join('');
+    branchSel.value = branches.some(([id]) => id === keep) ? keep : '';
+    branchSel.hidden = branches.length < 2;
     render();
   }
 
@@ -58,17 +70,24 @@ window.init_recojo = async function initRecojo() {
   function render() {
     const tbody = document.getElementById('rc-tbody');
     const counter = document.getElementById('rc-orders-count');
-    if (counter) counter.textContent = String(rows.length);
-    tbody.innerHTML = rows.length ? rows.map((row) => `
+    const branch = document.getElementById('rc-sucursal').value;
+    const scoped = branch ? allRows.filter(r => String(r.sucursal_id) === branch) : allRows;
+    MPQueue.chips(document.getElementById('rc-chips'), scoped, queue.state, stageFilter, key => { stageFilter = key; render(); });
+    rows = MPQueue.filter(scoped, queue.state, stageFilter);
+    const pack = MPQueue.packages(scoped, queue.order);
+    if (counter) counter.textContent = String(scoped.filter(r => !MPQueue.CLOSED.has(r.estado)).length);
+    tbody.innerHTML = rows.length ? MPQueue.tableRows(rows, queue.state, 7, (row) => {
+      const p = pack(row), a = MPQueue.age(queue.created(row));
+      return `
       <tr>
-        <td><b>${esc(row.numero_orden)}</b><br><small>${esc(row.venta_numero || 'Sin nota')}</small></td>
+        <td><b>${esc(row.numero_orden)}</b>${p ? `<span class="oq-pack">Paquete ${p.index} de ${p.total}</span>` : ''}<br><small>${esc(row.venta_numero || 'Sin nota')}${a.text && !MPQueue.CLOSED.has(row.estado) ? ` · <span class="oq-age ${a.late ? 'late' : ''}">${a.text}</span>` : ''}</small></td>
         <td>${esc(row.cliente_nombre || 'Cliente web')}<br><small>${esc(row.cliente_doc || '')}</small></td>
         <td>${esc(row.sucursal_nombre)}</td>
         <td><span class="delivery-chip ${row.tipo_entrega === 'recojo' ? 'pickup' : 'delivery'}"><i class="ti ${row.tipo_entrega === 'recojo' ? 'ti-building-store' : 'ti-truck-delivery'}"></i> ${row.tipo_entrega === 'recojo' ? 'Recojo' : 'Delivery'}</span></td>
         <td><span class="badge ${statusClass(row.estado)}">${esc(statusLabel[row.estado] || row.estado)}</span></td>
         <td>${row.recojo_fecha ? `${esc(row.recojo_fecha)}<br><small>${esc(row.recojo_hora_inicio || '')}–${esc(row.recojo_hora_fin || '')}</small>` : '—'}</td>
         <td><div class="action-cluster">${nextButtons(row)}</div></td>
-      </tr>`).join('') : '<tr><td colspan="7"><div class="empty-state"><i class="ti ti-package-off"></i><p>No existen pedidos para los filtros seleccionados.</p></div></td></tr>';
+      </tr>`; }) : '<tr><td colspan="7"><div class="empty-state"><i class="ti ti-package-off"></i><p>No hay pedidos en esta etapa.</p></div></td></tr>';
   }
 
   window._rcEstado = async (id, estado, observacion = '') => {
@@ -301,7 +320,7 @@ window.init_recojo = async function initRecojo() {
     renderHorarios();
   };
 
-  document.getElementById('rc-estado').onchange = load;
+  document.getElementById('rc-sucursal').onchange = render;
   document.getElementById('rc-tipo').onchange = load;
   document.getElementById('rc-buscar').oninput = () => { clearTimeout(window._rcTimer); window._rcTimer = setTimeout(load, 300); };
   document.getElementById('rc-refrescar').onclick = load;

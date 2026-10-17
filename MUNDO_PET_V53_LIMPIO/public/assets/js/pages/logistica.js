@@ -60,10 +60,13 @@ window.init_logistica = async function initLogistica() {
     renderDeliveries();
   }
 
+  let lgStage = 'activos';
+  const lgQueue = { state: x => x.estado_preparacion, created: x => x.created_at, order: x => x.numero, branch: x => x.sucursal_nombre };
   function filteredDeliveries() {
-    const state = document.getElementById('lg-pedidos-estado').value;
     const term = document.getElementById('lg-pedidos-buscar').value.trim().toLocaleLowerCase('es-PE');
-    return deliveries.filter(x => (!state || x.estado_preparacion === state) && (!term || [x.numero,x.cliente,x.direccion,x.telefono,x.sucursal_nombre].some(v=>String(v||'').toLocaleLowerCase('es-PE').includes(term))));
+    const found = deliveries.filter(x => !term || [x.numero,x.cliente,x.direccion,x.telefono,x.sucursal_nombre].some(v=>String(v||'').toLocaleLowerCase('es-PE').includes(term)));
+    MPQueue.chips(document.getElementById('lg-chips'), found, lgQueue.state, lgStage, key => { lgStage = key; renderDeliveries(); }, ['pendiente','preparando','listo']);
+    return MPQueue.sort(MPQueue.filter(found, lgQueue.state, lgStage), lgQueue);
   }
 
   function renderDeliveries() {
@@ -74,12 +77,14 @@ window.init_logistica = async function initLogistica() {
       ['Pendientes de preparación',counts.pendiente,'pendiente'],['En preparación',counts.preparando,'preparando'],['Listos para asignar',counts.listo,'listo']
     ].map(x=>`<article><span>${x[0]}</span><b>${x[1]}</b>${stage(x[2])}</article>`).join('');
     const list = filteredDeliveries();
-    document.getElementById('lg-pedidos-body').innerHTML = list.length ? list.map(x => {
+    const pack = MPQueue.packages(deliveries, lgQueue.order);
+    document.getElementById('lg-pedidos-body').innerHTML = list.length ? MPQueue.tableRows(list, lgQueue.state, 7, x => {
       const action = x.estado_preparacion === 'listo'
         ? `<button class="btn btn-primary btn-sm" onclick="_lgCrearRutaConPedido(${Number(x.entrega_sucursal_id||0)},${Number(x.sucursal_id)})"><i class="ti ti-route"></i> Asignar a ruta</button>`
         : `<button class="btn btn-outline btn-sm" onclick="Router.navegar('recojo')"><i class="ti ti-package"></i> Ir a preparación</button>`;
-      return `<tr><td><b>${esc(x.numero)}</b><br><small>${new Date(x.created_at).toLocaleString('es-PE',{timeZone:'America/Lima'})}</small></td><td class="lg-customer"><b>${esc(x.cliente)}</b><small>${esc(x.telefono||'Sin teléfono')}</small></td><td>${esc(x.sucursal_nombre||'')}</td><td>${esc(x.direccion||'Sin dirección')}</td><td>${Number(x.peso_estimado_kg||0)}</td><td>${stage(x.estado_preparacion)}</td><td class="lg-next">${canManage?action:'<span class="text-muted">Solo consulta</span>'}</td></tr>`;
-    }).join('') : `<tr><td colspan="7">${empty('No hay pedidos delivery en esta etapa.')}</td></tr>`;
+      const p = pack(x), a = MPQueue.age(x.created_at);
+      return `<tr><td><b>${esc(x.numero)}</b>${p ? `<span class="oq-pack">Paquete ${p.index} de ${p.total}</span>` : ''}<br><small title="${esc(new Date(x.created_at).toLocaleString('es-PE',{timeZone:'America/Lima'}))}" class="oq-age ${a.late ? 'late' : ''}">${a.text}</small></td><td class="lg-customer"><b>${esc(x.cliente)}</b><small>${esc(x.telefono||'Sin teléfono')}</small></td><td>${esc(x.sucursal_nombre||'')}</td><td>${esc(x.direccion||'Sin dirección')}</td><td>${Number(x.peso_estimado_kg||0)}</td><td>${stage(x.estado_preparacion)}</td><td class="lg-next">${canManage?action:'<span class="text-muted">Solo consulta</span>'}</td></tr>`;
+    }) : `<tr><td colspan="7">${empty('No hay pedidos delivery en esta etapa.')}</td></tr>`;
   }
 
   async function loadResumen() {

@@ -489,3 +489,24 @@ body .rep-btn-export { border-radius: 9px; font-weight: 600; }
 #btn-instalar i { font-size: 17px; color: var(--mpc-accent); }
 #btn-instalar:hover { border-color: var(--mpc-accent); color: var(--mpc-accent); }
 @media (max-width: 900px) { #btn-instalar span { display: none; } #btn-instalar { padding: 0 10px; } }
+
+/* ── Cola de pedidos (Recojo en tienda y Logística) ─────────────────── */
+.oq-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px 4px; }
+.oq-chip { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--texto); font: 600 13px/1 inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.oq-chip i { font-size: 16px; }
+.oq-chip b { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--input-bg, #f1f5f9); font-size: 12px; }
+.oq-chip:hover { border-color: var(--mpc-accent); }
+.oq-chip.on { background: var(--mpc-accent); border-color: var(--mpc-accent); color: #fff; }
+.oq-chip.on b { background: rgba(255, 255, 255, .25); color: #fff; }
+.oq-chip.tone-bad:not(.on) i { color: #dc2626; } .oq-chip.tone-wait:not(.on) i { color: #d97706; }
+.oq-chip.tone-info:not(.on) i { color: #0284c7; } .oq-chip.tone-ok:not(.on) i { color: #16a34a; }
+.oq-group td { padding: 14px 12px 8px !important; background: transparent !important; border-bottom: 2px solid var(--card-border) !important; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--texto-muted); }
+.oq-group td i { font-size: 16px; margin-right: 6px; vertical-align: -3px; }
+.oq-group td b { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--input-bg, #f1f5f9); color: var(--texto); font-size: 11.5px; }
+.oq-group.tone-bad td i { color: #dc2626; } .oq-group.tone-wait td i { color: #d97706; } .oq-group.tone-info td i { color: #0284c7; } .oq-group.tone-ok td i { color: #16a34a; } .oq-group.tone-done td i { color: #64748b; }
+.oq-group:hover td { background: transparent !important; }
+.oq-pack { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 6px; background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.oq-age { color: var(--texto-muted); }
+.oq-age.late { color: #dc2626; font-weight: 700; }
+.lg-table td:first-child b, #rc-tbody td:first-child b { white-space: nowrap; }
+.lg-table td:first-child, #rc-tbody td:first-child { min-width: 150px; }

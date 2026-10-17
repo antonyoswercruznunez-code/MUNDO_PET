@@ -35,7 +35,7 @@
       <label>Sucursal</label>
       <select id="lg-pedidos-sucursal" class="form-control"><option value="">Todas</option></select>
     </div>
-    <div>
+    <div hidden>
       <label>Etapa</label>
       <select id="lg-pedidos-estado" class="form-control">
         <option value="">Todas</option><option value="pendiente">Pendiente de preparación</option>
@@ -47,6 +47,7 @@
   </div>
   <div id="lg-pedido-kpis" class="lg-mini-kpis"></div>
   <div class="card lg-table-card">
+    <div class="oq-chips" id="lg-chips"></div>
     <div class="table-responsive">
       <table class="table lg-table">
         <thead><tr><th>Pedido</th><th>Cliente y contacto</th><th>Sucursal</th><th>Dirección</th><th>Unidades</th><th>Etapa</th><th>Acción siguiente</th></tr></thead>

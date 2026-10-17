@@ -473,7 +473,7 @@ app.get(
 );
 
 app.get(
-  ['/web', '/tienda'],
+  ['/web', '/tienda', '/tienda/*', '/web/*'],
   (req, res) => {
     res.sendFile(
       path.join(

@@ -3,14 +3,14 @@
  * carrito y cuenta. Sustituye las funciones de presentación de tienda-app.js;
  * la lógica de precios, checkout y sesión sigue viviendo allí.
  *
- * Navegación por hash (se puede compartir el enlace y usar "atrás"):
- *   #/                 portada
- *   #/ofertas          productos con descuento
- *   #/mas-vendidos     ranking de ventas
- *   #/todos            catálogo completo
- *   #/sucursal/ID      productos de un local
- *   #/buscar/texto     resultados de búsqueda
- *   #/producto/ID      página del producto
+ * Direcciones limpias (se pueden compartir y funciona "atrás"):
+ *   /tienda                    portada
+ *   /tienda/ofertas            productos con descuento
+ *   /tienda/mas-vendidos       ranking de ventas
+ *   /tienda/todos              catálogo completo
+ *   /tienda/sucursal/ID        productos de un local
+ *   /tienda/buscar/texto       resultados de búsqueda
+ *   /tienda/producto/ID        página del producto
  */
 (function () {
   const money = value => `S/ ${Number(value || 0).toFixed(2)}`;
@@ -57,14 +57,21 @@
       await this.repriceCart({ silent: true });
       await this.checkSession();
       this.route();
-      window.addEventListener('hashchange', () => this.route());
+      window.addEventListener('popstate', () => this.route());
+      // Los enlaces internos cambian de vista sin recargar la página.
+      document.addEventListener('click', event => {
+        const link = event.target.closest('a[href^="/tienda"]');
+        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || link.target === '_blank') return;
+        event.preventDefault();
+        this.go(link.getAttribute('href'));
+      });
 
-      document.getElementById('brand').onclick = event => { event.preventDefault(); this.go('#/'); };
+      document.getElementById('brand').onclick = event => { event.preventDefault(); this.go('/tienda'); };
       document.getElementById('search-form').onsubmit = event => {
         event.preventDefault();
         const text = document.getElementById('buscador').value.trim();
         this.ocultarSugerencias();
-        this.go(text ? `#/buscar/${encodeURIComponent(text)}` : '#/todos');
+        this.go(text ? `/tienda/buscar/${encodeURIComponent(text)}` : '/tienda/todos');
       };
       let timer;
       const input = document.getElementById('buscador');
@@ -81,7 +88,14 @@
       document.addEventListener('keydown', event => { if (event.key === 'Escape') { this.cerrarMenu(); this.cerrarModal(); this.cerrarTodo(); this.ocultarSugerencias(); } });
     },
 
-    go(hash) { if (location.hash === hash) this.route(); else location.hash = hash; },
+    // La barra de direcciones se queda siempre en /tienda (como el panel en
+    // /dashboard). La vista actual vive en el historial del navegador, así
+    // el botón "atrás" sigue funcionando entre vistas.
+    go(path) {
+      if (this.currentPath() !== path) history.pushState({ vista: path }, '', '/tienda');
+      this.route();
+    },
+    currentPath() { return history.state?.vista || '/tienda'; },
 
     // ── Configuración, franja verde y pie ──
     async cargarConfig() {
@@ -151,7 +165,7 @@
             <div class="rc-hero-copy">
               <h1>${this.esc(this.cfg?.nombre || 'Mundo Pet')}</h1>
               ${this.cfg?.descripcion ? `<p>${this.esc(this.cfg.descripcion)}</p>` : ''}
-              <div class="rc-hero-ctas"><a class="rc-btn light" href="#/todos">Ver productos <i class="ti ti-arrow-right"></i></a><a class="rc-btn ghost" href="#/ofertas">Ofertas</a></div>
+              <div class="rc-hero-ctas"><a class="rc-btn light" href="/tienda/todos">Ver productos <i class="ti ti-arrow-right"></i></a><a class="rc-btn ghost" href="/tienda/ofertas">Ofertas</a></div>
             </div>
             <i class="ti ti-paw rc-hero-mark" aria-hidden="true"></i>
           </div></div>`;
@@ -212,7 +226,16 @@
 
     // ── Navegación ──
     route() {
-      const [, view = '', arg = ''] = (location.hash || '#/').split('/');
+      // Un enlace antiguo (/tienda#/producto/7 o /tienda/producto/7) abre esa
+      // vista y la dirección vuelve a quedar en /tienda.
+      if (!history.state?.vista) {
+        const legacy = location.hash.startsWith('#/') ? location.hash.slice(1) : location.pathname.replace(/^\/(tienda|web)/, '');
+        history.replaceState({ vista: `/tienda${legacy && legacy !== '/' ? legacy.replace(/\/+$/, '') : ''}` }, '', '/tienda');
+      } else if (location.pathname !== '/tienda' || location.hash) {
+        history.replaceState(history.state, '', '/tienda');
+      }
+      const parts = this.currentPath().replace(/^\/tienda\/?/, '').split('/');
+      const view = parts[0] || '', arg = parts.slice(1).join('/');
       const show = id => ['view-home', 'view-list', 'view-detail'].forEach(v => { document.getElementById(v).hidden = v !== id; });
       const key = `${view}/${arg}`;
       const changed = this._route !== key;
@@ -223,7 +246,7 @@
       else if (['ofertas', 'mas-vendidos', 'todos', 'sucursal', 'buscar'].includes(view)) { show('view-list'); this.renderLista(view, decodeURIComponent(arg)); }
       else { show('view-home'); this.renderHome(); }
       if (changed) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
-      document.querySelectorAll('#menu-body a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === (location.hash || '#/')));
+      document.querySelectorAll('#menu-body a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === this.currentPath()));
     },
 
     // ── Portada ──
@@ -233,11 +256,11 @@
       if (!this._productos.length) { home.innerHTML = this.vacio('package-off', 'Pronto tendremos productos', ''); return; }
       const sections = [];
       const top = this.masVendidos();
-      if (top.length) sections.push(this.railHTML({ title: 'Los más vendidos', products: top, link: '#/mas-vendidos', linkText: 'Ver todos' }));
+      if (top.length) sections.push(this.railHTML({ title: 'Los más vendidos', products: top, link: '/tienda/mas-vendidos', linkText: 'Ver todos' }));
       const deals = this.ofertas();
-      if (deals.length) sections.push(this.railHTML({ title: 'Ofertas de la semana', products: deals, link: '#/ofertas', linkText: 'Descuentos', hot: true }));
+      if (deals.length) sections.push(this.railHTML({ title: 'Ofertas de la semana', products: deals, link: '/tienda/ofertas', linkText: 'Descuentos', hot: true }));
       if (this._branches.length > 1) sections.push(this.branchesHTML());
-      this._branches.forEach(([id, nombre]) => sections.push(this.railHTML({ title: nombre, products: this._productos.filter(p => Number(p.sucursal_id) === id), link: `#/sucursal/${id}`, linkText: 'Ver todos' })));
+      this._branches.forEach(([id, nombre]) => sections.push(this.railHTML({ title: nombre, products: this._productos.filter(p => Number(p.sucursal_id) === id), link: `/tienda/sucursal/${id}`, linkText: 'Ver todos' })));
       home.innerHTML = sections.join('');
       this.activarCarruseles();
       this.revelar();
@@ -248,7 +271,7 @@
         <div class="rc-branches">${this._branches.map(([id, nombre], i) => {
           const list = this._productos.filter(p => Number(p.sucursal_id) === id);
           const img = list.find(p => p.imagen)?.imagen;
-          return `<a class="rc-branch" href="#/sucursal/${id}">
+          return `<a class="rc-branch" href="/tienda/sucursal/${id}">
             <span class="rc-branch-ico">${img ? `<img src="${this.esc(img)}" alt="" loading="lazy">` : `<i class="ti ${BRANCH_ICONS[i % BRANCH_ICONS.length]}"></i>`}</span>
             <span><b>${this.esc(nombre)}</b><small>${list.length} ${list.length === 1 ? 'producto' : 'productos'}</small></span>
             <i class="ti ti-chevron-right"></i></a>`;
@@ -307,11 +330,11 @@
         nombre: (a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')
       };
       list = [...list].sort((a, b) => Number(isOut(a)) - Number(isOut(b)) || (sorters[orden] ? sorters[orden](a, b) : 0));
-      document.getElementById('list-crumbs').innerHTML = `<a href="#/">Inicio</a><i class="ti ti-chevron-right"></i><span>${this.esc(crumb)}</span>`;
+      document.getElementById('list-crumbs').innerHTML = `<a href="/tienda">Inicio</a><i class="ti ti-chevron-right"></i><span>${this.esc(crumb)}</span>`;
       document.getElementById('section-title').textContent = title;
       document.getElementById('list-count').textContent = `${list.length} ${list.length === 1 ? 'producto' : 'productos'}`;
-      const chips = [['#/todos', 'Todos'], ['#/ofertas', 'Ofertas'], ['#/mas-vendidos', 'Más vendidos'], ...this._branches.map(([id, n]) => [`#/sucursal/${id}`, n])];
-      document.getElementById('list-chips').innerHTML = chips.map(([href, label]) => `<a class="rc-chip ${location.hash === href ? 'on' : ''}" href="${href}">${this.esc(label)}</a>`).join('');
+      const chips = [['/tienda/todos', 'Todos'], ['/tienda/ofertas', 'Ofertas'], ['/tienda/mas-vendidos', 'Más vendidos'], ...this._branches.map(([id, n]) => [`/tienda/sucursal/${id}`, n])];
+      document.getElementById('list-chips').innerHTML = chips.map(([href, label]) => `<a class="rc-chip ${this.currentPath() === href ? 'on' : ''}" href="${href}">${this.esc(label)}</a>`).join('');
       document.getElementById('grid').innerHTML = list.length
         ? list.map((p, i) => this.cardHTML(p, i)).join('')
         : this.vacio(view === 'buscar' ? 'search-off' : 'package-off', view === 'buscar' ? 'No encontramos productos' : 'No hay productos aquí', view === 'buscar' ? 'Prueba con otra palabra o revisa la ortografía.' : '');
@@ -319,7 +342,7 @@
       this.refrescarControles();
     },
     vacio(icon, title, text) {
-      return `<div class="rc-empty"><i class="ti ti-${icon}"></i><b>${this.esc(title)}</b>${text ? `<span>${this.esc(text)}</span>` : ''}<a class="rc-btn" href="#/todos">Ver todos los productos</a></div>`;
+      return `<div class="rc-empty"><i class="ti ti-${icon}"></i><b>${this.esc(title)}</b>${text ? `<span>${this.esc(text)}</span>` : ''}<a class="rc-btn" href="/tienda/todos">Ver todos los productos</a></div>`;
     },
 
     // ── Buscador con sugerencias ──
@@ -331,7 +354,7 @@
       const nq = norm(q);
       const hits = this._productos.filter(p => norm(p.nombre).includes(nq) || norm(p.marca).includes(nq)).slice(0, 6);
       box.innerHTML = hits.length
-        ? hits.map(p => `<a href="#/producto/${Number(p.id)}" role="option"><span class="rc-sg-img">${p.imagen ? `<img src="${this.esc(p.imagen)}" alt="">` : '<i class="ti ti-paw"></i>'}</span><span class="rc-sg-name">${this.esc(p.nombre)}<small>${this.esc(p.sucursal_nombre || '')}</small></span><b>${money(p.precio_final)}</b></a>`).join('')
+        ? hits.map(p => `<a href="/tienda/producto/${Number(p.id)}" role="option"><span class="rc-sg-img">${p.imagen ? `<img src="${this.esc(p.imagen)}" alt="">` : '<i class="ti ti-paw"></i>'}</span><span class="rc-sg-name">${this.esc(p.nombre)}<small>${this.esc(p.sucursal_nombre || '')}</small></span><b>${money(p.precio_final)}</b></a>`).join('')
           + `<button type="submit" class="rc-sg-all">Ver todos los resultados <i class="ti ti-arrow-right"></i></button>`
         : `<div class="rc-sg-none">Sin coincidencias para “${this.esc(text.trim())}”</div>`;
       box.hidden = false;
@@ -347,12 +370,12 @@
       const out = stock <= 0;
       const sub = [p.marca, p.unidad && p.unidad !== 'unidad' ? p.unidad : ''].filter(Boolean).join(' · ') || p.sucursal_nombre || '';
       return `<article class="rc-card rc-reveal${out ? ' is-out' : ''}" style="--d:${Math.min(index, 10)}">
-        <a class="rc-card-media" href="#/producto/${id}" aria-label="${this.esc(p.nombre)}">
+        <a class="rc-card-media" href="/tienda/producto/${id}" aria-label="${this.esc(p.nombre)}">
           ${off > 0 ? `<span class="rc-off">-${off}%</span>` : ''}
           ${p.imagen ? `<img src="${this.esc(p.imagen)}" alt="" loading="lazy">` : '<i class="ti ti-paw rc-noimg"></i>'}
         </a>
         <div class="rc-card-body">
-          <a class="rc-card-name" href="#/producto/${id}">${this.esc(p.nombre)}</a>
+          <a class="rc-card-name" href="/tienda/producto/${id}">${this.esc(p.nombre)}</a>
           ${sub ? `<div class="rc-card-sub">${this.esc(sub)}</div>` : ''}
           <div class="rc-price">${off > 0 ? `<s>${money(p.precio_venta)}</s>` : ''}<b>${money(p.precio_final)}</b></div>
           <div class="rc-stock">${out ? '<span class="rc-tag-out">Agotado</span>' : stock <= 5 ? `<span class="rc-tag-low">${stock === 1 ? 'Última unidad' : `Últimas ${stock} unidades`}</span>` : `<span><i class="ti ti-package"></i>Stock: ${stock}</span>`}</div>
@@ -436,7 +459,7 @@
     // ── Página de producto ──
     async verProducto(id) {
       const host = document.getElementById('view-detail');
-      if (!document.getElementById('view-home').hidden) { location.hash = `#/producto/${Number(id)}`; return; }
+      if (document.getElementById('view-detail').hidden) { this.go(`/tienda/producto/${Number(id)}`); return; }
       host.innerHTML = '<div class="rc-pd-loading"><div class="rc-skel-img"></div><div class="rc-skel-lines"><i></i><i></i><i></i></div></div>';
       let d;
       try { d = await (await fetch(`${API}/productos/${Number(id)}`)).json(); } catch (_) { d = { ok: false }; }
@@ -451,7 +474,7 @@
       document.title = `${p.nombre} — ${this.cfg?.nombre || 'Tienda'}`;
       const related = this._productos.filter(x => Number(x.sucursal_id) === Number(p.sucursal_id) && Number(x.id) !== Number(p.id));
       host.innerHTML = `
-        <nav class="rc-crumbs" aria-label="Ruta"><a href="#/">Inicio</a><i class="ti ti-chevron-right"></i><a href="#/sucursal/${Number(p.sucursal_id)}">${this.esc(p.sucursal_nombre || 'Productos')}</a><i class="ti ti-chevron-right"></i><span>${this.esc(p.nombre)}</span></nav>
+        <nav class="rc-crumbs" aria-label="Ruta"><a href="/tienda">Inicio</a><i class="ti ti-chevron-right"></i><a href="/tienda/sucursal/${Number(p.sucursal_id)}">${this.esc(p.sucursal_nombre || 'Productos')}</a><i class="ti ti-chevron-right"></i><span>${this.esc(p.nombre)}</span></nav>
         <article class="rc-pd">
           <div class="rc-pd-media">
             <div class="rc-pd-main">${off > 0 ? `<span class="rc-off big">-${off}%</span>` : ''}${images[0] ? `<img src="${this.esc(images[0])}" alt="${this.esc(p.nombre)}" id="pd-img">` : '<i class="ti ti-paw rc-noimg"></i>'}</div>
@@ -475,7 +498,7 @@
             ${p.descripcion ? `<div class="rc-pd-desc"><h2>Descripción</h2><p>${this.esc(p.descripcion)}</p></div>` : ''}
           </div>
         </article>
-        ${related.length ? this.railHTML({ title: 'También te puede interesar', products: related, link: `#/sucursal/${Number(p.sucursal_id)}`, linkText: 'Ver todos' }) : ''}`;
+        ${related.length ? this.railHTML({ title: 'También te puede interesar', products: related, link: `/tienda/sucursal/${Number(p.sucursal_id)}`, linkText: 'Ver todos' }) : ''}`;
       this._pd = { id: Number(p.id), base: Number(p.precio_final), tiers, stock, images };
       this.activarCarruseles(host);
       this.revelar();
@@ -508,12 +531,12 @@
       if (!body) return;
       body.innerHTML = `
         <div class="rc-menu-group"><small>Comprar</small>
-          <a href="#/"><i class="ti ti-home"></i>Inicio</a>
-          <a href="#/ofertas"><i class="ti ti-discount-2"></i>Ofertas</a>
-          <a href="#/mas-vendidos"><i class="ti ti-trending-up"></i>Más vendidos</a>
-          <a href="#/todos"><i class="ti ti-layout-grid"></i>Todos los productos</a>
+          <a href="/tienda"><i class="ti ti-home"></i>Inicio</a>
+          <a href="/tienda/ofertas"><i class="ti ti-discount-2"></i>Ofertas</a>
+          <a href="/tienda/mas-vendidos"><i class="ti ti-trending-up"></i>Más vendidos</a>
+          <a href="/tienda/todos"><i class="ti ti-layout-grid"></i>Todos los productos</a>
         </div>
-        ${this._branches.length ? `<div class="rc-menu-group"><small>Tiendas</small>${this._branches.map(([id, nombre], i) => `<a href="#/sucursal/${id}"><i class="ti ${BRANCH_ICONS[i % BRANCH_ICONS.length]}"></i>${this.esc(nombre)}</a>`).join('')}</div>` : ''}
+        ${this._branches.length ? `<div class="rc-menu-group"><small>Tiendas</small>${this._branches.map(([id, nombre], i) => `<a href="/tienda/sucursal/${id}"><i class="ti ${BRANCH_ICONS[i % BRANCH_ICONS.length]}"></i>${this.esc(nombre)}</a>`).join('')}</div>` : ''}
         <div class="rc-menu-group" id="menu-account"></div>`;
       body.querySelectorAll('a').forEach(a => a.addEventListener('click', () => this.cerrarTodo()));
       this.renderMenuCuenta();
@@ -543,7 +566,7 @@
       const units = this.cart.reduce((sum, item) => sum + Number(item.cantidad || 0), 0);
       document.getElementById('cart-count').textContent = units ? `(${units})` : '';
       if (!this.cart.length) {
-        body.innerHTML = `<div class="st-cart-empty"><i class="ti ti-shopping-cart"></i><b>Tu carrito está vacío</b><span>Agrega productos para empezar tu pedido.</span><button class="rc-btn" onclick="Tienda.cerrarTodo();Tienda.go('#/todos')">Ver productos</button></div>`;
+        body.innerHTML = `<div class="st-cart-empty"><i class="ti ti-shopping-cart"></i><b>Tu carrito está vacío</b><span>Agrega productos para empezar tu pedido.</span><button class="rc-btn" onclick="Tienda.cerrarTodo();Tienda.go('/tienda/todos')">Ver productos</button></div>`;
         foot.innerHTML = '';
         foot.hidden = true;
         return;
@@ -559,7 +582,7 @@
         const line = Number(i.precio) * Number(i.cantidad);
         const lineNormal = Math.max(Number(i.precio_normal || 0), Number(i.precio)) * Number(i.cantidad);
         return `<div class="st-ci">
-          <a class="st-ci-img" href="#/producto/${Number(i.id)}" onclick="Tienda.cerrarTodo()">${i.imagen ? `<img src="${this.esc(i.imagen)}" alt="">` : '<i class="ti ti-paw"></i>'}</a>
+          <a class="st-ci-img" href="/tienda/producto/${Number(i.id)}" onclick="Tienda.cerrarTodo()">${i.imagen ? `<img src="${this.esc(i.imagen)}" alt="">` : '<i class="ti ti-paw"></i>'}</a>
           <div>
             <div class="st-ci-name">${this.esc(i.nombre)}</div>
             <div class="st-ci-sub">${money(i.precio)} c/u${i.volumen_aplicado ? ` · <em>precio por ${Number(i.volumen_aplicado.cantidad_minima)}+</em>` : ''}</div>

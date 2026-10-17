@@ -460,20 +460,88 @@ const TiendaController = {
     res.json({ok:true,msg:'Imagen de pago guardada'});
   }),
 
+  // Mis pedidos: resumen con el avance de cada sucursal.
   misPedidos: wrap(async (req,res) => {
     const db=getDB();
-    const [rows]=await db.query(`SELECT id,numero_orden,tipo_entrega,total,metodo_pago,estado_pago,estado_pedido,venta_id,es_multisucursal,reserva_expires_at,DATE_FORMAT(created_at,'%Y-%m-%d %H:%i') created_at FROM pedidos_web WHERE cliente_web_id=? ORDER BY id DESC LIMIT 50`,[req.session.clienteWeb.id]);
+    const [rows]=await db.query(`SELECT id,numero_orden,tipo_entrega,total,metodo_pago,estado_pago,estado_pedido,venta_id,es_multisucursal,reserva_expires_at,
+        DATE_FORMAT(created_at,'%Y-%m-%dT%H:%i:%s') created_at,
+        (SELECT COALESCE(SUM(pi.cantidad),0) FROM pedido_items pi WHERE pi.pedido_id=pedidos_web.id) unidades
+      FROM pedidos_web WHERE cliente_web_id=? ORDER BY id DESC LIMIT 50`,[req.session.clienteWeb.id]);
+    if(rows.length){
+      const ids=rows.map(r=>r.id);
+      const [branches]=await db.query(`SELECT pi.pedido_id,pi.sucursal_id,s.nombre,pes.estado
+        FROM (SELECT DISTINCT pedido_id,sucursal_id FROM pedido_items WHERE pedido_id IN (?)) pi
+        JOIN sucursales s ON s.id=pi.sucursal_id
+        LEFT JOIN pedido_entregas_sucursal pes ON pes.pedido_id=pi.pedido_id AND pes.sucursal_id=pi.sucursal_id
+        ORDER BY s.nombre`,[ids]);
+      rows.forEach(r=>{ r.sucursales=branches.filter(x=>x.pedido_id===r.id).map(x=>({id:x.sucursal_id,nombre:x.nombre,estado:x.estado||null})); });
+    }
     res.json({ok:true,pedidos:rows});
   }),
 
+  // Detalle para seguir el pedido: cada sucursal con su etapa, horario o
+  // código de recojo y, en delivery, la ruta y dónde va el repartidor.
   miPedido: wrap(async (req,res) => {
     const db=getDB();
-    const [[pedido]]=await db.query('SELECT id,numero_orden,tipo_entrega,total,metodo_pago,estado_pago,estado_pedido,venta_id,es_multisucursal,cliente_snapshot,direccion_snapshot,rechazo_motivo,reserva_expires_at,created_at FROM pedidos_web WHERE id=? AND cliente_web_id=?',[Number(req.params.id),req.session.clienteWeb.id]);
+    const [[pedido]]=await db.query(`SELECT pw.id,pw.numero_orden,pw.tipo_entrega,pw.subtotal,pw.costo_delivery,pw.total,pw.metodo_pago,pw.estado_pago,pw.estado_pedido,
+        pw.venta_id,pw.es_multisucursal,pw.direccion_snapshot,pw.direccion_entrega,pw.rechazo_motivo,pw.imagen_voucher,pw.comprobante_cliente,
+        DATE_FORMAT(pw.created_at,'%Y-%m-%dT%H:%i:%s') created_at,DATE_FORMAT(pw.verificado_at,'%Y-%m-%dT%H:%i:%s') verificado_at,
+        DATE_FORMAT(pw.reserva_expires_at,'%Y-%m-%dT%H:%i:%s') reserva_expires_at,v.numero venta_numero,v.tipo_comprobante
+      FROM pedidos_web pw LEFT JOIN ventas v ON v.id=pw.venta_id WHERE pw.id=? AND pw.cliente_web_id=?`,[Number(req.params.id),req.session.clienteWeb.id]);
     if(!pedido) return res.status(404).json({ok:false,msg:'Pedido no encontrado'});
-    const [items]=await db.query(`SELECT pi.producto_id,pi.cantidad,pi.precio_unit,pi.subtotal,pi.sucursal_id,pi.nombre_snapshot,p.imagen,s.nombre sucursal_nombre FROM pedido_items pi LEFT JOIN productos p ON p.id=pi.producto_id LEFT JOIN sucursales s ON s.id=pi.sucursal_id WHERE pi.pedido_id=?`,[pedido.id]);
-    const [entregas]=await db.query(`SELECT pes.id,pes.sucursal_id,s.nombre sucursal_nombre,pes.tipo_entrega,pes.estado,pes.codigo_recojo_enc,pes.codigo_usado_at FROM pedido_entregas_sucursal pes JOIN sucursales s ON s.id=pes.sucursal_id WHERE pes.pedido_id=?`,[pedido.id]);
-    for(const e of entregas){ if(e.codigo_recojo_enc && !e.codigo_usado_at){ try{e.codigo_recojo=Crypto.decrypt(e.codigo_recojo_enc);}catch(_){e.codigo_recojo=null;} } delete e.codigo_recojo_enc; }
-    res.json({ok:true,pedido,items,entregas});
+    let destino={};
+    try{ destino=typeof pedido.direccion_snapshot==='string'?JSON.parse(pedido.direccion_snapshot||'{}'):(pedido.direccion_snapshot||{}); }catch(_){ destino={}; }
+    pedido.destino={ direccion:destino.direccion||pedido.direccion_entrega||'', referencia:destino.referencia||'', recibe:destino.recibe||'',
+      lat:Number(destino.lat)||null, lng:Number(destino.lng)||null };
+    pedido.tiene_voucher=!!(pedido.imagen_voucher||pedido.comprobante_cliente);
+    delete pedido.direccion_snapshot; delete pedido.imagen_voucher; delete pedido.comprobante_cliente; delete pedido.direccion_entrega;
+
+    const [items]=await db.query(`SELECT pi.producto_id,pi.cantidad,pi.precio_unit,pi.subtotal,pi.sucursal_id,pi.nombre_snapshot,
+        COALESCE((SELECT x.ruta FROM producto_imagenes x WHERE x.producto_id=pi.producto_id ORDER BY x.es_portada DESC,x.id LIMIT 1),p.imagen) imagen
+      FROM pedido_items pi LEFT JOIN productos p ON p.id=pi.producto_id WHERE pi.pedido_id=? ORDER BY pi.id`,[pedido.id]);
+    const branchIds=[...new Set(items.map(i=>Number(i.sucursal_id)).filter(Boolean))];
+    const [branches]=branchIds.length?await db.query('SELECT id,nombre,direccion,telefono,lat,lng FROM sucursales WHERE id IN (?)',[branchIds]):[[]];
+    const [entregas]=await db.query(`SELECT pes.id,pes.sucursal_id,pes.tipo_entrega,pes.estado,pes.codigo_recojo_enc,
+        DATE_FORMAT(pes.codigo_usado_at,'%Y-%m-%dT%H:%i:%s') codigo_usado_at,DATE_FORMAT(pes.updated_at,'%Y-%m-%dT%H:%i:%s') updated_at
+      FROM pedido_entregas_sucursal pes WHERE pes.pedido_id=?`,[pedido.id]);
+    const [slots]=await db.query(`SELECT r.sucursal_id,DATE_FORMAT(f.fecha,'%Y-%m-%d') fecha,TIME_FORMAT(f.hora_inicio,'%H:%i') hora_inicio,TIME_FORMAT(f.hora_fin,'%H:%i') hora_fin
+      FROM pedido_recojo_reservas r JOIN recojo_fechas f ON f.id=r.horario_id WHERE r.pedido_id=? AND r.estado<>'liberado'`,[pedido.id]);
+    const [stops]=entregas.length?await db.query(`SELECT d.pedido_entrega_sucursal_id eid,d.ruta_id,d.orden,d.estado parada_estado,DATE_FORMAT(d.entregado_at,'%Y-%m-%dT%H:%i:%s') entregado_at,
+        r.codigo,r.estado ruta_estado,DATE_FORMAT(r.hora_salida_real,'%Y-%m-%dT%H:%i:%s') salida,rp.nombres repartidor,rp.usuario_id,ve.placa,
+        (SELECT COUNT(*) FROM ruta_reparto_pedidos o WHERE o.ruta_id=d.ruta_id AND o.orden<d.orden AND o.estado IN ('pendiente','en_camino')) paradas_antes
+      FROM ruta_reparto_pedidos d JOIN rutas_reparto r ON r.id=d.ruta_id
+      LEFT JOIN repartidores rp ON rp.id=r.repartidor_id LEFT JOIN vehiculos ve ON ve.id=r.vehiculo_id
+      WHERE d.pedido_entrega_sucursal_id IN (?) AND r.estado<>'cancelada' ORDER BY d.id DESC`,[entregas.map(e=>e.id)]):[[]];
+    const settings=await DeliveryPricing.getSettings(db).catch(()=>({}));
+
+    const sucursales=[];
+    for(const id of branchIds){
+      const b=branches.find(x=>Number(x.id)===id)||{nombre:'Sucursal'};
+      const e=entregas.find(x=>Number(x.sucursal_id)===id);
+      const its=items.filter(i=>Number(i.sucursal_id)===id);
+      const slot=slots.find(x=>Number(x.sucursal_id)===id)||null;
+      let codigo=null;
+      if(e?.codigo_recojo_enc && !e.codigo_usado_at){ try{ codigo=Crypto.decrypt(e.codigo_recojo_enc); }catch(_){ codigo=null; } }
+      const stop=e?stops.find(x=>Number(x.eid)===Number(e.id)):null;
+      let ruta=null;
+      if(stop){
+        ruta={ codigo:stop.codigo, estado:stop.ruta_estado, parada:stop.parada_estado, orden:Number(stop.orden), paradas_antes:Number(stop.paradas_antes||0),
+          repartidor:String(stop.repartidor||'').trim().split(/\s+/)[0]||'', placa:stop.placa||'', salida:stop.salida, entregado_at:stop.entregado_at, ubicacion:null };
+        // La ubicación del repartidor solo se comparte mientras va en camino a este pedido.
+        if(stop.ruta_estado==='en_ruta' && ['pendiente','en_camino'].includes(stop.parada_estado) && stop.usuario_id){
+          const [[loc]]=await db.query(`SELECT lat,lng,TIMESTAMPDIFF(SECOND,created_at,NOW()) hace FROM usuario_ubicaciones
+            WHERE usuario_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 30 MINUTE) ORDER BY id DESC LIMIT 1`,[stop.usuario_id]).catch(()=>[[null]]);
+          if(loc) ruta.ubicacion={ lat:Number(loc.lat), lng:Number(loc.lng), hace_seg:Number(loc.hace) };
+        }
+      }
+      const lat=Number(b.lat)||(settings.origin?.lat??null), lng=Number(b.lng)||(settings.origin?.lng??null);
+      sucursales.push({ sucursal_id:id, nombre:b.nombre, direccion:b.direccion||'', telefono:b.telefono||'', lat, lng,
+        tipo_entrega:e?.tipo_entrega||pedido.tipo_entrega, estado:e?.estado||null, actualizado_at:e?.updated_at||null,
+        codigo_recojo:codigo, codigo_usado_at:e?.codigo_usado_at||null, horario:slot, ruta,
+        items:its.map(i=>({ nombre:i.nombre_snapshot, cantidad:Number(i.cantidad), precio_unit:Number(i.precio_unit), subtotal:Number(i.subtotal), imagen:i.imagen||null })),
+        subtotal:Number(its.reduce((sum,i)=>sum+Number(i.subtotal||0),0).toFixed(2)) });
+    }
+    res.json({ok:true,pedido,sucursales});
   }),
 
   listarDirecciones: wrap(async(req,res)=>res.json({ok:true,direcciones:await ClienteWebModel.listarDirecciones(req.session.clienteWeb.id)})),

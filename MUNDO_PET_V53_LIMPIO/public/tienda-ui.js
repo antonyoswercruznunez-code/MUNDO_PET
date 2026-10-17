@@ -236,13 +236,16 @@
       }
       const parts = this.currentPath().replace(/^\/tienda\/?/, '').split('/');
       const view = parts[0] || '', arg = parts.slice(1).join('/');
-      const show = id => ['view-home', 'view-list', 'view-detail'].forEach(v => { document.getElementById(v).hidden = v !== id; });
+      const show = id => ['view-home', 'view-list', 'view-detail', 'view-orders'].forEach(v => { document.getElementById(v).hidden = v !== id; });
       const key = `${view}/${arg}`;
       const changed = this._route !== key;
       this._route = key;
       this.cerrarTodo();
       if (view !== 'producto' && this.cfg?.nombre) document.title = `${this.cfg.nombre} — Tienda`;
+      if (view !== 'pedido') this.pararSeguimiento?.();
       if (view === 'producto') { show('view-detail'); this.verProducto(Number(arg)); }
+      else if (view === 'mis-pedidos') { show('view-orders'); this.renderMisPedidos(); }
+      else if (view === 'pedido') { show('view-orders'); this.renderPedido(Number(arg)); }
       else if (['ofertas', 'mas-vendidos', 'todos', 'sucursal', 'buscar'].includes(view)) { show('view-list'); this.renderLista(view, decodeURIComponent(arg)); }
       else { show('view-home'); this.renderHome(); }
       if (changed) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
@@ -606,6 +609,8 @@
       const first = this.cliente ? String(this.cliente.nombre || '').trim().split(/\s+/)[0] : '';
       label.textContent = this.cliente ? (first || 'Mi cuenta') : 'Ingresar';
       btn.classList.toggle('in', !!this.cliente);
+      const orders = document.getElementById('btn-orders');
+      if (orders) orders.hidden = !this.cliente;
       const icon = btn.querySelector('i, img');
       if (icon) icon.outerHTML = this.cliente?.avatar ? `<img src="${this.esc(this.cliente.avatar)}" alt="">` : `<i class="ti ti-${this.cliente ? 'user-check' : 'user'}"></i>`;
       this.renderCuentaPie();

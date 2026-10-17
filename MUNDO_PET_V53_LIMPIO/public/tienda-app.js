@@ -352,8 +352,6 @@ const Tienda = {
     const map=MPMap.create(L,host,{center:points[0],zoom:13});
     MPMap.drawZones(L,map,{origins:points,zones:d.zonas,showOrigin:false});
     this._map=map; this._mapL=L; this._mapOrigin=points[0]||null;
-    const legend=document.getElementById('ck-map-legend');
-    if(legend) legend.innerHTML=[...d.zonas].sort((a,b)=>a.km_hasta-b.km_hasta).map((z,i)=>`<span><i style="--c:${MPMap.zoneColor(i)}"></i>${this.esc(z.nombre)} · hasta ${Number(z.km_hasta)} km · S/ ${Number(z.costo).toFixed(2)}</span>`).join('')+(Number(d.gratis_desde)>0?`<span><i class="ti ti-gift" style="border:0;background:none;width:auto;height:auto;color:#16a34a"></i>Gratis desde S/ ${Number(d.gratis_desde).toFixed(2)}</span>`:'');
     map.on('click',e=>this.fijarPuntoDelivery({lat:e.latlng.lat,lng:e.latlng.lng},{describir:true}));
     const q=document.getElementById('ck-map-q'); const results=document.getElementById('ck-map-results');
     let timer=null;
@@ -491,7 +489,6 @@ const Tienda = {
             <div class="dz-search"><i class="ti ti-search"></i><input id="ck-map-q" placeholder="Busca tu dirección o un lugar cercano" autocomplete="off" aria-label="Buscar dirección"><button type="button" id="ck-map-gps" title="Usar mi ubicación actual"><i class="ti ti-current-location"></i><span>Mi ubicación</span></button><div id="ck-map-results" class="dz-results" role="listbox"></div></div>
             <div id="ck-map" class="dz-map"></div>
             <div id="ck-map-status" class="dz-status"></div>
-            <div id="ck-map-legend" class="dz-legend"></div>
           </div>`:''}
           <div class="field"><label>Dirección de entrega</label><textarea id="ck-direccion" rows="2" placeholder="Av./Calle, número, lote" oninput="this.dataset.auto=''"></textarea></div>
           <div class="field"><label>Referencia</label><input id="ck-ref" placeholder="Color de la casa, piso, cerca de..."></div>

@@ -271,9 +271,7 @@ async function ensureSchema(db, projectRoot) {
 
   if (await tableExists(db, 'configuracion')) {
     for (const row of [
-      ['delivery_costo','8.00','ecommerce'],
       ['delivery_gratis_desde','150.00','ecommerce'],
-      ['delivery_cargo_unidad','0.50','ecommerce'],
       ['schema_version','53','sistema']
     ]) {
       await db.query(`INSERT INTO configuracion (clave,valor,grupo) VALUES (?,?,?)
@@ -306,6 +304,26 @@ async function ensureSchema(db, projectRoot) {
   for (const column of ['lat', 'lng']) {
     if (await addColumn(db, 'sucursales', column, 'DECIMAL(10,7) NULL')) changes.push(`sucursales.${column}`);
   }
+
+  // Delivery por zonas de distancia: anillos en km desde el punto de despacho.
+  if (!(await tableExists(db, 'delivery_zonas'))) {
+    await db.query(`CREATE TABLE delivery_zonas (
+      id INT NOT NULL AUTO_INCREMENT,
+      nombre VARCHAR(80) NOT NULL,
+      km_hasta DECIMAL(6,2) NOT NULL,
+      costo DECIMAL(12,2) NOT NULL DEFAULT 0,
+      activo TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_delivery_zona_km (activo,km_hasta)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    await db.query(`INSERT INTO delivery_zonas (nombre,km_hasta,costo) VALUES
+      ('Zona cercana',3,5),('Zona media',6,8),('Zona lejana',10,12)`);
+    changes.push('tabla delivery_zonas');
+  }
+  // El delivery se cobra solo por zonas: la tarifa única ya no existe.
+  await db.query("DELETE FROM configuracion WHERE clave IN ('delivery_costo','delivery_cargo_unidad')").catch(() => {});
 
   // Mapa en vivo: puntos que comparte quien reparte.
   if (!(await tableExists(db, 'usuario_ubicaciones'))) {

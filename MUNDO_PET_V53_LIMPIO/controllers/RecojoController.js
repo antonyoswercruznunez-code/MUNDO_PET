@@ -10,6 +10,12 @@ function allowedTransition(current, next, type) {
   return (type === 'recojo' ? pickup : delivery)[current]?.includes(next) || false;
 }
 
+// Un horario sigue vigente mientras no haya terminado: días futuros completos y,
+// para hoy, solo los turnos cuya hora final todavía no pasó.
+const SLOT_VIGENTE="(fecha>CURDATE() OR (fecha=CURDATE() AND hora_fin>CURTIME()))";
+// Reservas que representan la programación real del pedido (las liberadas no).
+const RESERVA_ACTIVA="('reservado','confirmado','utilizado')";
+
 function normalizeCode(value){return String(value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^(.{4})(.{4})$/,'$1-$2');}
 function validCode(value){return /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(value)||/^[A-HJ-NP-Z2-9]{5}$/.test(value);}
 
@@ -46,7 +52,7 @@ const RecojoController = {
       JOIN pedidos_web pw ON pw.id=pes.pedido_id
       LEFT JOIN ventas v ON v.id=pes.venta_id
       JOIN sucursales s ON s.id=pes.sucursal_id
-      LEFT JOIN pedido_recojo_reservas prr ON prr.pedido_id=pes.pedido_id AND prr.sucursal_id=pes.sucursal_id
+      LEFT JOIN pedido_recojo_reservas prr ON prr.pedido_id=pes.pedido_id AND prr.sucursal_id=pes.sucursal_id AND prr.estado IN ${RESERVA_ACTIVA}
       LEFT JOIN recojo_fechas rf ON rf.id=prr.horario_id
       WHERE pw.estado_pago='aprobado'`;
     const params=[];
@@ -133,22 +139,31 @@ const RecojoController = {
       if(!d)throw Object.assign(new Error('Entrega no encontrada'),{status:404});
       if(d.tipo_entrega!=='recojo')throw Object.assign(new Error('Solo se puede reprogramar el recojo en tienda'),{status:400});
       if(['entregado','cancelado'].includes(d.estado))throw Object.assign(new Error('La entrega ya no puede reprogramarse'),{status:409});
-      const [[nuevo]]=await conn.query(`SELECT * FROM recojo_fechas WHERE id=? AND sucursal_id=? AND estado=0 AND fecha>=CURDATE() FOR UPDATE`,[horarioId,d.sucursal_id]);
-      if(!nuevo)throw Object.assign(new Error('El horario no existe o no corresponde a la sucursal'),{status:404});
-      if(Number(nuevo.cupos_usados)>=Number(nuevo.cupos_total))throw Object.assign(new Error('El horario seleccionado ya no tiene cupos'),{status:409});
-      const [[reserva]]=await conn.query(`SELECT * FROM pedido_recojo_reservas WHERE pedido_id=? AND sucursal_id=? AND estado IN ('reservado','confirmado') FOR UPDATE`,[d.pedido_id,d.sucursal_id]);
-      if(reserva&&Number(reserva.horario_id)===horarioId)throw Object.assign(new Error('El pedido ya tiene ese horario'),{status:409});
+      const [[nuevo]]=await conn.query(`SELECT * FROM recojo_fechas WHERE id=? AND sucursal_id=? AND estado=0 AND ${SLOT_VIGENTE} FOR UPDATE`,[horarioId,d.sucursal_id]);
+      if(!nuevo)throw Object.assign(new Error('El horario no existe, ya pasó o no corresponde a la sucursal'),{status:404});
+      // Solo existe una reserva por pedido y sucursal (uq_recojo_pedido_sucursal).
+      // Puede estar liberada si la reserva temporal venció antes de aprobar el
+      // pago; en ese caso ya no ocupa cupo y se reutiliza la misma fila.
+      const [[reserva]]=await conn.query(`SELECT * FROM pedido_recojo_reservas WHERE pedido_id=? AND sucursal_id=? FOR UPDATE`,[d.pedido_id,d.sucursal_id]);
+      const ocupaCupo=!!reserva&&['reservado','confirmado'].includes(reserva.estado);
+      if(ocupaCupo&&Number(reserva.horario_id)===horarioId)throw Object.assign(new Error('El pedido ya tiene ese horario'),{status:409});
+      const [tomado]=await conn.query(`UPDATE recojo_fechas SET cupos_usados=cupos_usados+1 WHERE id=? AND cupos_usados<cupos_total`,[horarioId]);
+      if(!tomado.affectedRows)throw Object.assign(new Error('El horario seleccionado ya no tiene cupos'),{status:409});
+      if(ocupaCupo)await conn.query(`UPDATE recojo_fechas SET cupos_usados=GREATEST(cupos_usados-1,0) WHERE id=?`,[reserva.horario_id]);
       if(reserva){
-        await conn.query(`UPDATE recojo_fechas SET cupos_usados=GREATEST(cupos_usados-1,0) WHERE id=?`,[reserva.horario_id]);
         await conn.query(`UPDATE pedido_recojo_reservas SET horario_id=?,estado='confirmado',updated_at=NOW() WHERE id=?`,[horarioId,reserva.id]);
       }else{
         await conn.query(`INSERT INTO pedido_recojo_reservas(pedido_id,sucursal_id,horario_id,estado,created_at,updated_at) VALUES(?,?,?,'confirmado',NOW(),NOW())`,[d.pedido_id,d.sucursal_id,horarioId]);
       }
-      await conn.query(`UPDATE recojo_fechas SET cupos_usados=cupos_usados+1 WHERE id=?`,[horarioId]);
+      await conn.query(`UPDATE pedidos_web SET recojo_fecha_id=?,updated_at=NOW() WHERE id=? AND es_multisucursal=0`,[horarioId,d.pedido_id]);
       await conn.commit();
       await Audit.log(req,{accion:'recojo_reprogramado',modulo:'recojo',entidad:'pedido_entregas_sucursal',entidad_id:d.id,datos:{horario_anterior:reserva?.horario_id||null,horario_nuevo:horarioId}});
       res.json({ok:true,msg:'Recojo reprogramado correctamente'});
-    }catch(e){await conn.rollback();res.status(e.status||400).json({ok:false,msg:e.message});}finally{conn.release();}
+    }catch(e){
+      await conn.rollback();
+      if(!e.status)console.error(`[${req.requestId||'-'}] Reprogramar recojo:`,e.message);
+      res.status(e.status||500).json({ok:false,msg:e.status?e.message:'No se pudo reprogramar el recojo. Intenta nuevamente.'});
+    }finally{conn.release();}
   }),
 
   horarios: wrap(async(req,res)=>{
@@ -198,11 +213,15 @@ const RecojoController = {
   }),
 
   updateHorario: wrap(async(req,res)=>{
-    const db=getDB();const id=Number(req.params.id);const [[h]]=await db.query('SELECT * FROM recojo_fechas WHERE id=?',[id]);if(!h)return res.status(404).json({ok:false,msg:'Horario no encontrado'});
+    const db=getDB();const id=Number(req.params.id);const [[h]]=await db.query("SELECT id,sucursal_id,DATE_FORMAT(fecha,'%Y-%m-%d') fecha,TIME_FORMAT(hora_inicio,'%H:%i') hora_inicio,TIME_FORMAT(hora_fin,'%H:%i') hora_fin,cupos_total,cupos_usados,estado FROM recojo_fechas WHERE id=?",[id]);if(!h)return res.status(404).json({ok:false,msg:'Horario no encontrado'});
     const scope=userScope(req);const global=await hasGlobalScope(req,'dashboard.ver_global');if(!global&&Number(h.sucursal_id)!==Number(scope.sucursalId))return res.status(403).json({ok:false,msg:'Horario fuera de tu alcance'});
     const fecha=String(req.body.fecha||h.fecha).slice(0,10);const inicio=String(req.body.hora_inicio||h.hora_inicio).slice(0,5);const fin=String(req.body.hora_fin||h.hora_fin).slice(0,5);const cupos=Number(req.body.cupos_total??h.cupos_total);const estado=Number(req.body.estado??h.estado);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!/^\d{2}:\d{2}$/.test(inicio)||!/^\d{2}:\d{2}$/.test(fin)||inicio>=fin||!Number.isInteger(cupos)||cupos<Number(h.cupos_usados)||cupos>500||![0,1].includes(estado))return res.status(400).json({ok:false,msg:'Datos del horario inválidos'});
-    const [[clock]]=await db.query("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d') hoy");if(fecha<clock.hoy)return res.status(400).json({ok:false,msg:'No se puede mover un horario a una fecha pasada'});
+    const [[clock]]=await db.query("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d') hoy");if(fecha!==h.fecha&&fecha<clock.hoy)return res.status(400).json({ok:false,msg:'No se puede mover un horario a una fecha pasada'});
+    // Cambiar la fecha u hora de un horario movería a la vez todos los pedidos
+    // reservados en él. Con reservas activas solo se permite cupos y estado.
+    const cambiaTurno=fecha!==h.fecha||inicio!==h.hora_inicio||fin!==h.hora_fin;
+    if(cambiaTurno){const [[used]]=await db.query("SELECT COUNT(*) n FROM pedido_recojo_reservas WHERE horario_id=? AND estado IN ('reservado','confirmado')",[id]);if(Number(used.n)>0)return res.status(409).json({ok:false,msg:'El horario tiene pedidos reservados. Reprograma cada pedido en lugar de mover el horario.'});}
     await db.query('UPDATE recojo_fechas SET fecha=?,hora_inicio=?,hora_fin=?,cupos_total=?,estado=? WHERE id=?',[fecha,inicio,fin,cupos,estado,id]);await Audit.log(req,{accion:'horario_recojo_actualizado',modulo:'recojo',entidad:'recojo_fechas',entidad_id:id});res.json({ok:true,msg:'Horario actualizado'});
   }),
 

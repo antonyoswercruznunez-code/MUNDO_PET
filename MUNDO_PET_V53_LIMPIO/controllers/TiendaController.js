@@ -270,7 +270,7 @@ const TiendaController = {
              TIME_FORMAT(rf.hora_inicio,'%H:%i') hora_inicio,TIME_FORMAT(rf.hora_fin,'%H:%i') hora_fin,
              rf.cupos_total,rf.cupos_usados,(rf.cupos_total-rf.cupos_usados) disponibles,s.nombre sucursal_nombre
       FROM recojo_fechas rf JOIN sucursales s ON s.id=rf.sucursal_id
-      WHERE rf.estado=0 AND rf.fecha>=CURDATE() AND rf.sucursal_id IN (${placeholders})
+      WHERE rf.estado=0 AND (rf.fecha>CURDATE() OR (rf.fecha=CURDATE() AND rf.hora_fin>CURTIME())) AND rf.sucursal_id IN (${placeholders})
         AND rf.cupos_usados<rf.cupos_total
       ORDER BY rf.sucursal_id,rf.fecha,rf.hora_inicio LIMIT 250`,ids);
     res.json({ok:true,horarios:rows});
@@ -391,8 +391,9 @@ const TiendaController = {
         for(const branch of branches){
           const horarioId=Number(requested[String(branch)]||requested[branch]);
           if(!Number.isInteger(horarioId)||horarioId<=0)throw new Error('Selecciona un horario de recojo para cada sucursal');
-          const [[slot]]=await conn.query(`SELECT * FROM recojo_fechas WHERE id=? AND sucursal_id=? AND estado=0 AND fecha>=CURDATE() FOR UPDATE`,[horarioId,branch]);
-          if(!slot||Number(slot.cupos_usados)>=Number(slot.cupos_total))throw new Error('Uno de los horarios de recojo ya no tiene cupos');
+          const [[slot]]=await conn.query(`SELECT * FROM recojo_fechas WHERE id=? AND sucursal_id=? AND estado=0 AND (fecha>CURDATE() OR (fecha=CURDATE() AND hora_fin>CURTIME())) FOR UPDATE`,[horarioId,branch]);
+          if(!slot)throw new Error('Uno de los horarios de recojo ya no está disponible. Elige otro horario.');
+          if(Number(slot.cupos_usados)>=Number(slot.cupos_total))throw new Error('Uno de los horarios de recojo ya no tiene cupos');
           pickupSlots.push({branch,horarioId});
         }
       }

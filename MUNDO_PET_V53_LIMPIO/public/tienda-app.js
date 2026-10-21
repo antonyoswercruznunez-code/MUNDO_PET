@@ -634,7 +634,7 @@ const Tienda = {
   // ── MENÚ USUARIO / PEDIDOS ──
   menuUsuario() {
     this.showModal(`
-      <div class="modal-head"><h3>Hola, ${this.cliente.nombre.split(' ')[0]}</h3><button class="close-x" onclick="Tienda.cerrarModal()"><i class="ti ti-x"></i></button></div>
+      <div class="modal-head"><h3>Hola, ${this.esc(this.cliente.nombre.split(' ')[0])}</h3><button class="close-x" onclick="Tienda.cerrarModal()"><i class="ti ti-x"></i></button></div>
       <div class="modal-body">
         <button class="btn-block secondary" onclick="Tienda.cerrarModal();Tienda.verPedidos()"><i class="ti ti-package"></i> Mis pedidos</button>
         <button class="btn-block" style="background:#dc2626" onclick="Tienda.logout()"><i class="ti ti-logout"></i> Cerrar sesión</button>

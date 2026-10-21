@@ -82,8 +82,113 @@ async function ensureFilesAndPaths(db, projectRoot) {
 }
 
 // Compatibilidad histórica y actualizaciones aditivas hasta V53.
+// Tablas de logística tal como las crea database/gas_sistema.sql. Las bases
+// instaladas antes de V53 no las tienen y el módulo Logística fallaba completo.
+const LOGISTICS_TABLES = [
+  ['repartidores', `CREATE TABLE IF NOT EXISTS repartidores (
+    id INT NOT NULL AUTO_INCREMENT,
+    usuario_id INT NULL,
+    sucursal_id INT NULL,
+    nombres VARCHAR(160) NOT NULL,
+    documento VARCHAR(20) NOT NULL DEFAULT '',
+    telefono VARCHAR(30) NOT NULL DEFAULT '',
+    licencia VARCHAR(40) NOT NULL DEFAULT '',
+    categoria_licencia VARCHAR(20) NOT NULL DEFAULT '',
+    licencia_vencimiento DATE NULL,
+    contacto_emergencia VARCHAR(160) NOT NULL DEFAULT '',
+    telefono_emergencia VARCHAR(30) NOT NULL DEFAULT '',
+    estado TINYINT NOT NULL DEFAULT 1 COMMENT '1 activo, 0 inactivo, 2 eliminado',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_repartidor_usuario (usuario_id),
+    KEY idx_repartidor_sucursal_estado (sucursal_id,estado),
+    KEY idx_repartidor_documento (documento)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
+  ['vehiculos', `CREATE TABLE IF NOT EXISTS vehiculos (
+    id INT NOT NULL AUTO_INCREMENT,
+    sucursal_id INT NULL,
+    placa VARCHAR(15) NOT NULL,
+    tipo VARCHAR(30) NOT NULL DEFAULT 'camion',
+    marca VARCHAR(60) NOT NULL DEFAULT '',
+    modelo VARCHAR(60) NOT NULL DEFAULT '',
+    anio SMALLINT NULL,
+    capacidad_kg DECIMAL(12,2) NOT NULL DEFAULT 0,
+    capacidad_m3 DECIMAL(10,2) NOT NULL DEFAULT 0,
+    soat_vencimiento DATE NULL,
+    revision_vencimiento DATE NULL,
+    estado_operativo ENUM('disponible','en_ruta','mantenimiento','inactivo') NOT NULL DEFAULT 'disponible',
+    observaciones VARCHAR(500) NOT NULL DEFAULT '',
+    estado TINYINT NOT NULL DEFAULT 1 COMMENT '1 activo, 0 inactivo, 2 eliminado',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_vehiculo_placa (placa),
+    KEY idx_vehiculo_sucursal_estado (sucursal_id,estado_operativo,estado)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
+  ['rutas_reparto', `CREATE TABLE IF NOT EXISTS rutas_reparto (
+    id INT NOT NULL AUTO_INCREMENT,
+    codigo VARCHAR(40) NOT NULL,
+    fecha DATE NOT NULL,
+    sucursal_id INT NOT NULL,
+    repartidor_id INT NOT NULL,
+    vehiculo_id INT NOT NULL,
+    estado ENUM('planificada','cargada','en_ruta','completada','cancelada') NOT NULL DEFAULT 'planificada',
+    hora_salida_programada TIME NULL,
+    hora_salida_real DATETIME NULL,
+    hora_retorno DATETIME NULL,
+    km_inicial DECIMAL(12,2) NOT NULL DEFAULT 0,
+    km_final DECIMAL(12,2) NOT NULL DEFAULT 0,
+    observaciones VARCHAR(500) NOT NULL DEFAULT '',
+    created_by INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_ruta_codigo (codigo),
+    KEY idx_ruta_fecha_sucursal (fecha,sucursal_id),
+    KEY idx_ruta_repartidor (repartidor_id,fecha,estado),
+    KEY idx_ruta_vehiculo (vehiculo_id,fecha,estado)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`],
+  ['ruta_reparto_pedidos', `CREATE TABLE IF NOT EXISTS ruta_reparto_pedidos (
+    id INT NOT NULL AUTO_INCREMENT,
+    ruta_id INT NOT NULL,
+    pedido_web_id INT NULL,
+    pedido_entrega_sucursal_id BIGINT NULL,
+    venta_id INT NULL,
+    orden INT NOT NULL DEFAULT 1,
+    cliente_nombre VARCHAR(200) NOT NULL DEFAULT '',
+    telefono VARCHAR(30) NOT NULL DEFAULT '',
+    direccion VARCHAR(500) NOT NULL DEFAULT '',
+    monto_cobrar DECIMAL(12,2) NOT NULL DEFAULT 0,
+    peso_estimado_kg DECIMAL(12,2) NOT NULL DEFAULT 0,
+    monto_cobrado DECIMAL(12,2) NOT NULL DEFAULT 0,
+    metodo_cobro VARCHAR(30) NOT NULL DEFAULT '',
+    estado ENUM('pendiente','en_camino','entregado','no_entregado') NOT NULL DEFAULT 'pendiente',
+    receptor_nombre VARCHAR(160) NOT NULL DEFAULT '',
+    receptor_documento VARCHAR(20) NOT NULL DEFAULT '',
+    observacion_entrega VARCHAR(500) NOT NULL DEFAULT '',
+    entregado_at DATETIME NULL,
+    updated_by INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_ruta_pedido_web (pedido_web_id),
+    KEY idx_ruta_venta (venta_id),
+    KEY idx_ruta_detalle (ruta_id,orden),
+    KEY idx_entrega_estado (estado,entregado_at),
+    KEY idx_ruta_entrega_sucursal (pedido_entrega_sucursal_id,estado),
+    CONSTRAINT fk_ruta_detalle_ruta FOREIGN KEY (ruta_id) REFERENCES rutas_reparto (id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`]
+];
+
 async function ensureSchema(db, projectRoot) {
   const changes = [];
+
+  for (const [table, ddl] of LOGISTICS_TABLES) {
+    if (await tableExists(db, table)) continue;
+    await db.query(ddl);
+    changes.push(`tabla ${table}`);
+  }
 
   for (const [column, definition] of [
     ['direccion_enc', 'TEXT NULL AFTER `departamento`'],

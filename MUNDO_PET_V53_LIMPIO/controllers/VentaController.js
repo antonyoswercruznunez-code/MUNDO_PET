@@ -496,9 +496,49 @@ const VentaController = {
     try {
       await conn.beginTransaction();
 
+      // El precio unitario lo fija el servidor: precio de lista, escalón de
+      // volumen o precio de la cotización vigente. Lo que envía el navegador
+      // no se usa, así nadie puede registrar una venta con un precio alterado.
+      const quotePrices = new Map();
+      if (cotizacion_id) {
+        const [[quote]] = await conn.query(
+          "SELECT id FROM cotizaciones WHERE id=? AND estado='vigente' AND (vence_at IS NULL OR vence_at>=CURDATE())",
+          [Number(cotizacion_id)]
+        );
+        if (!quote) throw new Error('La cotización ya no está vigente. Vuelve a cargar los productos.');
+        const [quoteItems] = await conn.query(
+          'SELECT producto_id,presentacion_id,precio_unit FROM cotizacion_items WHERE cotizacion_id=?',
+          [quote.id]
+        );
+        for (const row of quoteItems)
+          quotePrices.set(`${row.producto_id}_${row.presentacion_id || 'base'}`, Number(row.precio_unit));
+      }
+      for (const item of items) {
+        item.producto_id = Number(item.producto_id);
+        item.cantidad = Number(item.cantidad);
+        item.descuento = 0;
+        if (!Number.isInteger(item.cantidad) || item.cantidad <= 0 || item.cantidad > 100000)
+          throw new Error('La cantidad de cada producto debe ser un número entero mayor a 0');
+        const key = `${item.producto_id}_${item.presentacion_id || 'base'}`;
+        if (quotePrices.has(key)) { item.precio_unit = quotePrices.get(key); continue; }
+        const [[listed]] = await conn.query('SELECT nombre,precio_venta FROM productos WHERE id=? AND estado=0', [item.producto_id]);
+        if (!listed) throw new Error(`Producto ID ${item.producto_id} no encontrado`);
+        let price = Number(listed.precio_venta || 0);
+        if (!item.presentacion_id) {
+          const [[tier]] = await conn.query(
+            'SELECT precio_unit FROM precios_volumen WHERE producto_id=? AND cantidad_desde<=? ORDER BY cantidad_desde DESC LIMIT 1',
+            [item.producto_id, item.cantidad]
+          );
+          if (tier) price = Number(tier.precio_unit);
+        }
+        if (!(price > 0)) throw new Error(`El producto "${listed.nombre}" no tiene un precio de venta válido`);
+        item.precio_unit = price;
+      }
+
       let subtotal = 0;
       for (const item of items)
-        subtotal += item.precio_unit * item.cantidad - (item.descuento || 0);
+        subtotal += item.precio_unit * item.cantidad;
+      subtotal = Number(subtotal.toFixed(2));
 
       let desc = +descuento || 0;
       if (desc < 0) desc = 0;
@@ -576,6 +616,18 @@ const VentaController = {
         });
       }
 
+      // ventas.metodo_pago alimenta el dashboard y los reportes. Sin esto toda
+      // venta del panel quedaba como "efectivo". Se guarda el método principal
+      // (el de mayor monto); el detalle exacto sigue en la tabla pagos.
+      const porMetodo = new Map();
+      for (const pago of pagos) {
+        const metodo = pago.metodo || 'efectivo';
+        porMetodo.set(metodo, (porMetodo.get(metodo) || 0) + (+pago.monto || 0));
+      }
+      const [metodoPrincipal] = [...porMetodo.entries()].sort((a, b) => b[1] - a[1])[0] || ['efectivo'];
+      if (['efectivo','yape','plin','transferencia','izipay','credito'].includes(metodoPrincipal))
+        await conn.query('UPDATE ventas SET metodo_pago=? WHERE id=?', [metodoPrincipal, venta_id]);
+
       // Enganche venta EFECTIVO → Caja: el efectivo entra a la caja abierta del cajero
       if (efectivoMonto > 0 && cajaSesion) {
         await CajaModel.insertMovimiento(conn, {
@@ -621,7 +673,39 @@ const VentaController = {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
+      // Bloquea la venta para que dos anulaciones simultáneas no repongan el
+      // stock dos veces.
+      const [[locked]] = await conn.query('SELECT estado_venta,pedido_web_id FROM ventas WHERE id=? FOR UPDATE', [id]);
+      if (!locked || locked.estado_venta === 'anulada') throw new Error('La venta ya está anulada');
+      // Una venta nacida de un pedido web arrastra su entrega: se cancela la
+      // preparación y se devuelve el cupo de recojo. Si ya se entregó, no se anula.
+      if (locked.pedido_web_id) {
+        const [deliveries] = await conn.query('SELECT id,estado FROM pedido_entregas_sucursal WHERE pedido_id=? FOR UPDATE', [locked.pedido_web_id]);
+        if (deliveries.some(d => d.estado === 'entregado'))
+          throw new Error('El pedido web de esta venta ya fue entregado. No se puede anular.');
+        const [slots] = await conn.query("SELECT id,horario_id FROM pedido_recojo_reservas WHERE pedido_id=? AND estado IN ('reservado','confirmado') FOR UPDATE", [locked.pedido_web_id]);
+        for (const slot of slots) {
+          await conn.query('UPDATE recojo_fechas SET cupos_usados=GREATEST(cupos_usados-1,0) WHERE id=?', [slot.horario_id]);
+          await conn.query("UPDATE pedido_recojo_reservas SET estado='liberado',updated_at=NOW() WHERE id=?", [slot.id]);
+        }
+        await conn.query("UPDATE pedido_entregas_sucursal SET estado='cancelado',observacion=?,updated_at=NOW() WHERE pedido_id=?", [`Venta ${v.numero} anulada`, locked.pedido_web_id]);
+        await conn.query("UPDATE pedidos_web SET estado_pedido='cancelado',updated_at=NOW() WHERE id=?", [locked.pedido_web_id]);
+      }
       await VentaModel.anular(conn, id, u.id);
+      // El efectivo cobrado sale de la caja si la sesión sigue abierta; de lo
+      // contrario el cierre mostraría un faltante que no existe.
+      const [cashIn] = await conn.query(`
+        SELECT m.sesion_id,m.sucursal_id,m.monto
+        FROM caja_movimientos m JOIN caja_sesiones s ON s.id=m.sesion_id
+        WHERE m.venta_id=? AND m.tipo='ingreso' AND s.estado='abierta'
+      `, [id]);
+      for (const movement of cashIn) {
+        await CajaModel.insertMovimiento(conn, {
+          sesion_id: movement.sesion_id, sucursal_id: movement.sucursal_id, tipo: 'egreso',
+          concepto: `Anulación venta ${v.numero}`, monto: movement.monto,
+          venta_id: null, usuario_id: u.id, created_at: peruNowSQL()
+        });
+      }
       const items = await VentaModel.getVentaItems(conn, id);
       for (const item of items) {
         await VentaModel.reponerStock(conn, item.producto_id, item.cantidad);

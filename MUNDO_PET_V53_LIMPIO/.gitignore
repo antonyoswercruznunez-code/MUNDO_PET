@@ -28,3 +28,6 @@ coverage/
 *.zip
 *.rar
 *.7z
+
+# Respaldos locales de la base (contienen datos reales)
+database/backup_*.sql

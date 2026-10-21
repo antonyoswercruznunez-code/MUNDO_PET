@@ -152,16 +152,20 @@ const CajaController = {
     if (!operador || operador.estado !== 0) {
       return res.json({ ok: false, msg: 'Tu usuario ya no está habilitado para operar caja.' });
     }
-    if (operador.pin_cajero_hash) {
+    if (esGlobal(u)) {
+      // El formulario pide la contraseña a los administradores. Si además
+      // tienen PIN de cajero, se acepta cualquiera de las dos credenciales.
+      const pinOk = !!operador.pin_cajero_hash && /^\d{4,6}$/.test(credencial)
+        && await bcrypt.compare(credencial, operador.pin_cajero_hash);
+      if (!pinOk && (!credencial || !(await bcrypt.compare(credencial, operador.password_hash)))) {
+        return res.json({ ok: false, msg: 'Contraseña del administrador incorrecta.' });
+      }
+    } else if (operador.pin_cajero_hash) {
       if (!/^\d{4,6}$/.test(credencial)) {
         return res.json({ ok: false, msg: 'Ingresa tu PIN de cajero de 4 a 6 dígitos.' });
       }
       if (!(await bcrypt.compare(credencial, operador.pin_cajero_hash))) {
         return res.json({ ok: false, msg: 'PIN de cajero incorrecto.' });
-      }
-    } else if (esGlobal(u)) {
-      if (!credencial || !(await bcrypt.compare(credencial, operador.password_hash))) {
-        return res.json({ ok: false, msg: 'Contraseña del administrador incorrecta.' });
       }
     } else {
       return res.json({ ok: false, msg: 'No tienes PIN de cajero. Solicita a un administrador que lo cree desde Usuarios.' });

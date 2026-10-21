@@ -297,7 +297,7 @@ async function sendApprovalMail(pedidoId) {
            rf.fecha,rf.hora_inicio,rf.hora_fin
     FROM pedido_entregas_sucursal pes
     JOIN sucursales s ON s.id=pes.sucursal_id
-    LEFT JOIN pedido_recojo_reservas prr ON prr.pedido_id=pes.pedido_id AND prr.sucursal_id=pes.sucursal_id
+    LEFT JOIN pedido_recojo_reservas prr ON prr.pedido_id=pes.pedido_id AND prr.sucursal_id=pes.sucursal_id AND prr.estado IN ('reservado','confirmado','utilizado')
     LEFT JOIN recojo_fechas rf ON rf.id=prr.horario_id
     WHERE pes.pedido_id=? ORDER BY s.nombre
   `, [pedidoId]);
@@ -591,6 +591,18 @@ const PedidoWebController = {
       if(op)await conn.query('UPDATE pagos_operaciones_unicas SET pago_id=?,venta_id=? WHERE referencia=?',[paymentResult.insertId,vr.insertId,op]);
       await conn.query("UPDATE reservas_web SET estado='consumida',updated_at=NOW() WHERE pedido_id=? AND estado='activa'",[p.id]);
       await conn.query("UPDATE pedido_recojo_reservas SET estado='confirmado',updated_at=NOW() WHERE pedido_id=? AND estado='reservado'",[p.id]);
+      // Si la reserva temporal venció antes de aprobar, el cupo ya fue liberado.
+      // Se intenta recuperar el mismo horario; si ya no está vigente o se llenó,
+      // la entrega queda sin programación y debe reprogramarse desde Recojo.
+      const [released]=await conn.query("SELECT id,horario_id FROM pedido_recojo_reservas WHERE pedido_id=? AND estado='liberado' FOR UPDATE",[p.id]);
+      for (const reservation of released) {
+        const [retaken]=await conn.query(`
+          UPDATE recojo_fechas SET cupos_usados=cupos_usados+1
+          WHERE id=? AND estado=0 AND cupos_usados<cupos_total
+            AND (fecha>CURDATE() OR (fecha=CURDATE() AND hora_fin>CURTIME()))
+        `,[reservation.horario_id]);
+        if (retaken.affectedRows) await conn.query("UPDATE pedido_recojo_reservas SET estado='confirmado',updated_at=NOW() WHERE id=?",[reservation.id]);
+      }
 
       const deliveries=[];
       for (const branch of branches) {

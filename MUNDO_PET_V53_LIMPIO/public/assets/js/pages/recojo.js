@@ -178,8 +178,11 @@ window.init_recojo = async function initRecojo() {
 
   window._rcReprogramar = async (id, sucursalId) => {
     const response = await Http.get('/recojo-horarios');
+    const nowTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
     const schedules = (response?.horarios || []).filter((schedule) => Number(schedule.sucursal_id) === Number(sucursalId)
-      && Number(schedule.estado) === 0 && Number(schedule.cupos_usados) < Number(schedule.cupos_total) && String(schedule.fecha) >= today());
+      && Number(schedule.estado) === 0 && Number(schedule.cupos_usados) < Number(schedule.cupos_total)
+      && (String(schedule.fecha) > today() || (String(schedule.fecha) === today() && String(schedule.hora_fin) > nowTime)))
+      .sort((a, b) => `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`));
     if (!schedules.length) return Swal.fire('Sin horarios', 'No hay horarios activos con cupo para esta sucursal.', 'info');
     const result = await Swal.fire({
       title: 'Reprogramar recojo', input: 'select',

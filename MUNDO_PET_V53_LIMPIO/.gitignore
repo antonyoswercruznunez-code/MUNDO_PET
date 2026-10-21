@@ -1,0 +1,30 @@
+# Dependencias
+node_modules/
+
+# Credenciales y configuración local
+.env
+.env.*
+!.env.public
+
+# Archivos temporales y registros
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Archivos generados durante la ejecución
+storage/tmp/
+storage/private/
+public/uploads/tmp/
+coverage/
+
+# Copias y paquetes locales
+*.zip
+*.rar
+*.7z

@@ -1,0 +1,66 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-lock-open"></i> Apertura de caja</h2>
+    <p>Selecciona una caja libre e ingresa tu PIN de cajero. Las cajas fuera de horario se muestran bloqueadas.</p>
+  </div>
+</div>
+
+<div id="apertura-mensaje"></div>
+
+<div id="apertura-disponibles">
+  <div class="card" style="padding:20px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <h4 style="margin:0 0 4px;color:var(--texto-fuerte)">Cajas habilitadas</h4>
+        <p id="apertura-sucursal" style="margin:0;color:var(--texto-muted);font-size:13px"></p>
+      </div>
+      <div id="apertura-selector-global" style="display:none;min-width:230px">
+        <label class="cfg-lbl" for="apertura-sucursal-select">Sucursal a operar</label>
+        <select id="apertura-sucursal-select" class="form-control"></select>
+      </div>
+      <span class="badge badge-info">Solo cajas libres</span>
+    </div>
+  </div>
+  <div id="apertura-cajas" class="apertura-grid"></div>
+</div>
+
+<div id="modal-apertura-caja" class="apertura-overlay" style="display:none">
+  <div class="card" style="width:92%;max-width:460px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px">
+      <div>
+        <h3 style="margin:0;color:var(--texto-fuerte)">Abrir <span id="apertura-caja-nombre">caja</span></h3>
+        <p style="margin:4px 0 0;color:var(--texto-muted);font-size:12px">Confirma tu identidad con tu PIN de cajero.</p>
+      </div>
+      <button class="btn btn-outline btn-xs" id="btn-cancelar-apertura" title="Cerrar"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div>
+        <label class="cfg-lbl" id="apertura-credencial-label">PIN de cajero *</label>
+        <input id="apertura-pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6"
+               class="form-control" placeholder="4 a 6 dígitos">
+      </div>
+      <div style="padding:12px;border:1px solid var(--card-border);border-radius:8px;background:var(--input-bg)">
+        <label class="cfg-lbl" style="margin-bottom:4px">Fondo inicial configurado</label>
+        <strong id="apertura-monto" style="font-size:18px;color:var(--primary)">S/ 0.00</strong>
+        <p style="font-size:11px;color:var(--texto-muted);margin:5px 0 0">El administrador configura este monto para esta caja.</p>
+      </div>
+      <div>
+        <label class="cfg-lbl">Observación (opcional)</label>
+        <textarea id="apertura-observacion" class="form-control" style="resize:none;height:72px" placeholder="Ej. Fondo entregado por administración"></textarea>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn btn-outline" id="btn-cancelar-apertura-2">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-apertura"><i class="ti ti-lock-open"></i> Abrir caja</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .apertura-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:14px; }
+  .apertura-card { padding:18px; border:1px solid var(--card-border); border-radius:12px; background:var(--card-bg); }
+  .apertura-card:hover { border-color:var(--primary); transform:translateY(-1px); transition:.18s; }
+  .apertura-overlay { position:fixed; inset:0; z-index:1200; align-items:center; justify-content:center; background:rgba(0,0,0,.56); }
+</style>

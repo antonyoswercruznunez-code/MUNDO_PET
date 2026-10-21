@@ -1,0 +1,101 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-chart-bar"></i> Reportes</h2>
+    <p>Análisis de ventas, productos, clientes, finanzas y distribución</p>
+  </div>
+</div>
+
+<!-- Aviso si no es admin -->
+<div id="rep-no-admin" style="display:none">
+  <div class="card" style="max-width:520px;margin:40px auto;text-align:center;padding:34px">
+    <i class="ti ti-lock" style="font-size:46px;color:var(--rojo,#e53935)"></i>
+    <h3 style="color:var(--texto-fuerte);margin:14px 0 6px">Acceso restringido</h3>
+    <p style="font-size:13px;color:var(--texto-muted);margin:0">Solo los administradores pueden ver los reportes.</p>
+  </div>
+</div>
+
+<div id="rep-contenido" style="display:none">
+
+  <!-- Filtros globales -->
+  <div class="card" style="padding:16px;margin-bottom:18px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end">
+      <div>
+        <label class="rep-lbl">Desde</label>
+        <input type="date" id="rep-desde" class="form-control" style="font-size:13px">
+      </div>
+      <div>
+        <label class="rep-lbl">Hasta</label>
+        <input type="date" id="rep-hasta" class="form-control" style="font-size:13px">
+      </div>
+      <div id="rep-sucursal-block" style="display:none">
+        <label class="rep-lbl">Sucursal</label>
+        <select id="rep-sucursal" class="form-control" style="font-size:13px">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="repRango('hoy')">Hoy</button>
+        <button class="btn btn-outline btn-sm" onclick="repRango('mes')">Mes</button>
+        <button class="btn btn-outline btn-sm" onclick="repRango('anio')">Año</button>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="repAplicar()" style="width:100%">
+          <i class="ti ti-refresh"></i> Aplicar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:4px;border-bottom:1px solid var(--card-border);margin-bottom:20px;overflow-x:auto">
+    <button class="rep-tab active" data-tab="ventas" onclick="repSwitchTab(event,'ventas')"><i class="ti ti-shopping-cart"></i> Ventas</button>
+    <button class="rep-tab" data-tab="ecommerce" onclick="repSwitchTab(event,'ecommerce')"><i class="ti ti-world-www"></i> Ecommerce</button>
+    <button class="rep-tab" data-tab="productos" onclick="repSwitchTab(event,'productos')"><i class="ti ti-box"></i> Productos</button>
+    <button class="rep-tab" data-tab="clientes" onclick="repSwitchTab(event,'clientes')"><i class="ti ti-users"></i> Clientes</button>
+    <button class="rep-tab" data-tab="finanzas" onclick="repSwitchTab(event,'finanzas')"><i class="ti ti-cash"></i> Finanzas</button>
+    <button class="rep-tab" data-tab="cotizaciones" onclick="repSwitchTab(event,'cotizaciones')"><i class="ti ti-file-text"></i> Cotizaciones</button>
+    <button class="rep-tab" data-tab="inventario" onclick="repSwitchTab(event,'inventario')"><i class="ti ti-building-warehouse"></i> Inventario</button>
+    <button class="rep-tab" data-tab="comprobantes" onclick="repSwitchTab(event,'comprobantes')"><i class="ti ti-receipt-tax"></i> Comprobantes</button>
+    <button class="rep-tab" data-tab="logistica" onclick="repSwitchTab(event,'logistica')"><i class="ti ti-truck-delivery"></i> Logística</button>
+  </div>
+
+  <div id="rep-tab-ventas" class="rep-content"></div>
+  <div id="rep-tab-ecommerce" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-productos" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-clientes" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-finanzas" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-cotizaciones" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-inventario" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-comprobantes" class="rep-content" style="display:none"></div>
+  <div id="rep-tab-logistica" class="rep-content" style="display:none"></div>
+
+</div>
+
+<script src="/assets/libs/xlsx.bundle.js"></script>
+<script>
+  // Fallback a CDN si el archivo local no cargó
+  if (typeof XLSX === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+  }
+</script>
+<style id="rep-style">
+  .rep-lbl { display:block;font-size:11px;font-weight:600;color:var(--texto-muted);
+             margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px; }
+  .rep-tab { background:none;border:none;padding:12px 16px;cursor:pointer;font-size:13px;
+             color:var(--texto-muted);border-bottom:2px solid transparent;transition:.2s;white-space:nowrap; }
+  .rep-tab:hover { color:var(--texto-fuerte); }
+  .rep-tab.active { color:var(--primary,#4a90d9);border-bottom-color:var(--primary,#4a90d9);font-weight:600; }
+  .rep-card { background:var(--card-bg,#1a1a2e);border:1px solid var(--card-border);border-radius:12px;padding:20px;margin-bottom:18px; }
+  .rep-card-title { font-size:14px;font-weight:700;color:var(--texto-fuerte);margin:0 0 16px;display:flex;align-items:center;justify-content:space-between;gap:8px; }
+  .rep-kpi-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px; }
+  .rep-kpi { background:var(--card-bg,#1a1a2e);border:1px solid var(--card-border);border-radius:12px;padding:18px; }
+  .rep-kpi-label { font-size:12px;color:var(--texto-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px; }
+  .rep-kpi-value { font-size:22px;font-weight:700;color:var(--texto-fuerte); }
+  .rep-table { width:100%;border-collapse:collapse;font-size:12px; }
+  .rep-table thead { border-bottom:1px solid var(--card-border);background:var(--input-bg); }
+  .rep-table th { text-align:left;font-weight:600;color:var(--texto-muted);padding:8px;height:36px; }
+  .rep-table td { padding:8px;border-bottom:1px solid var(--card-border);height:38px; }
+  .rep-btn-export { font-size:11px;padding:5px 10px; }
+  .rep-loading { text-align:center;color:var(--texto-muted);padding:30px;font-size:13px; }
+  .rep-empty { text-align:center;color:var(--texto-muted);padding:30px;font-size:13px; }
+</style>

@@ -1,0 +1,470 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-shopping-cart"></i> Ventas</h2>
+    <p>Registro y gestión de ventas</p>
+  </div>
+  <button class="btn btn-primary" id="btn-nueva-venta">
+    <i class="ti ti-plus"></i> Nueva Venta
+  </button>
+</div>
+
+<div class="stats-grid" id="stats-ventas"></div>
+
+<!-- Pestañas por sucursal (las llena el JS; solo admin global) -->
+<div id="ventas-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--card-border)"></div>
+
+<!-- Filtros -->
+<div class="card" style="padding:14px 20px;margin-bottom:16px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;color:var(--texto-muted);white-space:nowrap">Desde</label>
+      <input type="date" class="form-control" id="fil-desde" style="width:150px;padding:5px 8px">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;color:var(--texto-muted);white-space:nowrap">Hasta</label>
+      <input type="date" class="form-control" id="fil-hasta" style="width:150px;padding:5px 8px">
+    </div>
+    <select class="form-control" id="fil-tipo" style="width:160px;padding:5px 8px;font-size:12px">
+      <option value="">Todos los tipos</option>
+      <option value="nota">Nota de Venta</option>
+      <option value="boleta">Boleta</option>
+      <option value="factura">Factura</option>
+    </select>
+    <div class="search-box">
+      <i class="ti ti-search"></i>
+      <input type="text" id="inp-buscar" placeholder="N° venta o cliente...">
+    </div>
+    <button class="btn btn-outline btn-sm" id="btn-filtrar">
+      <i class="ti ti-filter"></i> Filtrar
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite" style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+  </div>
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>N° Venta</th>
+          <th>Cliente</th>
+          <th>Comprobante</th>
+          <th>Total</th>
+          <th>Pago</th>
+          <th>SUNAT</th>
+          <th>Vendedor</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-ventas">
+        <tr><td colspan="9">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA VENTA -->
+<div class="modal-overlay" id="modal-venta">
+  <div class="modal" style="max-width:1020px;width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-shopping-cart"></i>
+        <span id="nv-titulo">Nueva Venta</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-venta"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px;max-height:88vh;overflow-y:auto">
+      
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Cliente -->
+          <div class="nv-card">
+            <div class="nv-card-title">
+              <i class="ti ti-user" style="color:var(--rojo)"></i> Cliente
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input type="text" class="form-control" id="nv-doc-buscar"
+                     placeholder="DNI (8 dígitos) o RUC (11 dígitos)"
+                     maxlength="11" inputmode="numeric" style="flex:1">
+              <button class="btn btn-primary btn-sm" id="btn-nv-buscar-cli" style="white-space:nowrap">
+                <i class="ti ti-search"></i>
+              </button>
+            </div>
+            <div id="nv-cli-resultado" style="font-size:12px;margin-bottom:8px"></div>
+            <div id="nv-cli-info" style="display:none;background:var(--input-bg);
+                 border-radius:8px;padding:10px 12px;border:1px solid var(--card-border)">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                  <div style="font-weight:600;color:#fff;font-size:14px" id="nv-cli-nombre-label">—</div>
+                  <div style="font-size:11px;color:var(--texto-muted)" id="nv-cli-doc-label">—</div>
+                  <div style="font-size:11px;color:var(--texto-muted)" id="nv-cli-telefono-label"></div>
+                </div>
+                <button class="btn btn-ghost btn-xs" id="btn-nv-limpiar-cli" style="color:var(--texto-muted)">
+                  <i class="ti ti-x"></i>
+                </button>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--texto-muted);margin-top:8px">
+              <i class="ti ti-info-circle"></i>
+              Sin cliente se registra como "Cliente General" (luego puedes asignarle un DNI/RUC al emitir).
+            </div>
+            <input type="hidden" id="nv-cli-id">
+            <input type="hidden" id="nv-cli-tipo-doc">
+          </div>
+
+          <!-- Productos -->
+          <div class="nv-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="nv-card-title">
+                <i class="ti ti-package" style="color:var(--rojo)"></i> Productos
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-outline btn-sm" id="btn-nv-cargar-cot" title="Cargar una cotización vigente">
+                  <i class="ti ti-file-text"></i> Cargar cotización
+                </button>
+                <button class="btn btn-primary btn-sm" id="btn-nv-agregar-prod">
+                  <i class="ti ti-plus"></i> Agregar
+                </button>
+              </div>
+            </div>
+            <div id="nv-cot-cargada" style="display:none;background:rgba(25,118,210,.12);
+                 border:1px solid var(--info);border-radius:8px;padding:8px 12px;margin-bottom:10px;
+                 font-size:12px;justify-content:space-between;align-items:center">
+              <span style="color:var(--info)"><i class="ti ti-file-text"></i>
+                Cotización <strong id="nv-cot-codigo"></strong> cargada</span>
+              <button class="btn btn-ghost btn-xs" id="btn-nv-quitar-cot"
+                      style="color:var(--texto-muted)" title="Quitar cotización"><i class="ti ti-x"></i></button>
+            </div>
+            <div id="nv-items-empty" style="text-align:center;padding:20px 0;color:var(--texto-muted)">
+              <i class="ti ti-package" style="font-size:26px;opacity:.3;display:block;margin-bottom:6px"></i>
+              <span style="font-size:13px">Agrega productos a la venta</span>
+            </div>
+            <div id="nv-items-wrap" style="display:none">
+              <div class="tabla-container" style="margin:0">
+                <table class="tabla" style="font-size:13px">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th style="width:80px;text-align:right">P. Unit</th>
+                      <th style="width:60px;text-align:center">Cant.</th>
+                      <th style="width:80px;text-align:right">Subtotal</th>
+                      <th style="width:36px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="nv-items-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <!-- Pagos -->
+          <div id="nv-card-pagos" class="nv-card">
+            <div class="nv-card-title" style="margin-bottom:8px">
+              <i class="ti ti-wallet" style="color:var(--rojo)"></i> Métodos de Pago
+            </div>
+            <div id="nv-pagos-lista"></div>
+            <button class="btn btn-outline btn-sm" id="btn-nv-agregar-pago"
+                    style="width:100%;margin-top:8px;font-size:12px">
+              <i class="ti ti-plus"></i> Agregar método
+            </button>
+          </div>
+
+          <!-- Totales -->
+          <div class="nv-card" style="background:var(--input-bg)">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--texto-muted)">Subtotal</span>
+                <span id="nv-subtotal-label">S/ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="color:var(--texto-muted)">Descuento (S/)</span>
+                <input type="text" id="nv-descuento" value="0" inputmode="decimal"
+                       style="width:70px;background:var(--card-bg);border:1px solid var(--input-border);
+                              border-radius:6px;color:var(--texto);padding:3px 6px;font-size:12px;
+                              outline:none;text-align:right">
+              </div>
+              <div style="border-top:1px solid var(--card-border);padding-top:8px;display:flex;justify-content:space-between">
+                <span style="font-weight:700;font-size:15px">TOTAL</span>
+                <span id="nv-total-label" style="font-weight:700;font-size:18px;color:var(--success)">S/ 0.00</span>
+              </div>
+              <div id="nv-fila-vuelto" style="display:none;justify-content:space-between;
+                   background:rgba(0,200,83,.08);border-radius:6px;padding:6px 10px">
+                <span style="font-size:13px">
+                  <i class="ti ti-arrow-back-up" style="color:var(--success)"></i> Vuelto
+                </span>
+                <span id="nv-vuelto-label" style="font-weight:700">S/ 0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Observación -->
+          <div class="nv-card">
+            <div class="nv-card-title" style="margin-bottom:6px">
+              <i class="ti ti-notes" style="color:var(--rojo)"></i> Observación
+            </div>
+            <textarea class="form-control" id="nv-observacion" rows="2"
+                      placeholder="Opcional..." style="font-size:13px"></textarea>
+          </div>
+
+          <button class="btn btn-primary" id="btn-nv-registrar"
+                  style="padding:13px;font-size:14px;font-weight:600;border-radius:10px">
+            <i class="ti ti-check"></i> Registrar Venta
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUSCAR PRODUCTO -->
+<!-- MODAL CARGAR COTIZACIÓN -->
+<div class="modal-overlay" id="modal-cargar-cot">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-file-text"></i> Cargar cotización vigente</div>
+      <button class="modal-close" id="btn-cerrar-cargar-cot"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px">
+        <i class="ti ti-info-circle"></i>
+        Solo cotizaciones vigentes (no vencidas ni usadas). Se cargan sus productos al precio cotizado.
+      </div>
+      <div id="cargar-cot-lista" style="max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+        <div style="text-align:center;padding:20px;color:var(--texto-muted)">Cargando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-prod-buscar">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-package"></i> Seleccionar Producto</div>
+      <button class="modal-close" id="btn-cerrar-prod-buscar"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Pestañas de sucursal (solo admin global; las llena el JS) -->
+      <div id="nv-prod-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:10px;border-bottom:1px solid var(--card-border)"></div>
+      <div class="search-box" style="width:100%;margin-bottom:12px">
+        <i class="ti ti-search"></i>
+        <input type="text" id="nv-prod-buscar-inp" placeholder="Buscar por nombre..." style="width:100%">
+      </div>
+      <div id="nv-prod-lista" style="max-height:420px;overflow-y:auto;display:grid;
+           grid-template-columns:1fr 1fr;gap:8px">
+        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--texto-muted)">
+          Cargando productos...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRESENTACIONES -->
+<div class="modal-overlay" id="modal-presentaciones">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-layers"></i>
+        <span id="pres-modal-titulo">Seleccionar presentación</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-presentaciones"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="pres-modal-body" style="padding:16px"></div>
+  </div>
+</div>
+
+<!-- MODAL IMPRIMIR (elegir formato) -->
+<div class="modal-overlay" id="modal-imprimir" style="z-index:10000">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-printer"></i> Selecciona formato</div>
+      <button class="modal-close" id="btn-cerrar-imprimir"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <input type="hidden" id="imprimir-venta-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div onclick="_vImprimir(+document.getElementById('imprimir-venta-id').value,'a4')"
+             style="border:2px solid var(--card-border);border-radius:10px;padding:20px;text-align:center;
+                    cursor:pointer;transition:all .15s"
+             onmouseover="this.style.borderColor='var(--rojo)'"
+             onmouseout="this.style.borderColor='var(--card-border)'">
+          <i class="ti ti-file-text" style="font-size:32px;color:var(--info);display:block;margin-bottom:8px"></i>
+          <div style="font-weight:700;color:#fff;margin-bottom:4px">Hoja A4</div>
+          <div style="font-size:11px;color:var(--texto-muted)">210 × 297 mm</div>
+        </div>
+        <div onclick="_vImprimir(+document.getElementById('imprimir-venta-id').value,'ticket')"
+             style="border:2px solid var(--card-border);border-radius:10px;padding:20px;text-align:center;
+                    cursor:pointer;transition:all .15s"
+             onmouseover="this.style.borderColor='var(--rojo)'"
+             onmouseout="this.style.borderColor='var(--card-border)'">
+          <i class="ti ti-receipt" style="font-size:32px;color:var(--success);display:block;margin-bottom:8px"></i>
+          <div style="font-weight:700;color:#fff;margin-bottom:4px">Ticket 80mm</div>
+          <div style="font-size:11px;color:var(--texto-muted)">Impresora térmica</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VISTA PREVIA / IMPRESIÓN (iframe dentro del sistema) -->
+<div class="modal-overlay" id="modal-print" style="z-index:10001">
+  <div class="modal" style="max-width:880px;width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-printer"></i> <span id="print-titulo">Impresión</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-print"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:0;background:#525659">
+      <iframe id="print-iframe"
+              style="width:100%;height:76vh;border:none;display:block;background:#fff"></iframe>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" id="btn-print-tab">
+        <i class="ti ti-external-link"></i> Abrir en pestaña
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-print-go">
+        <i class="ti ti-printer"></i> Imprimir
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal" style="max-width:820px;width:95vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-receipt"></i> <span id="detalle-titulo">Detalle de Venta</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-detalle"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="detalle-body" style="max-height:82vh;overflow-y:auto">
+      <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIAL -->
+<div class="modal-overlay" id="modal-historial">
+  <div class="modal" style="max-width:520px;width:95vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-history"></i> <span id="historial-titulo">Historial de la venta</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-historial"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="historial-body" style="padding:22px;max-height:78vh;overflow-y:auto">
+      <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EMITIR -->
+<div class="modal-overlay" id="modal-emitir">
+  <div class="modal" style="max-width:640px;width:95vw">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-file-invoice"></i> Emitir Comprobante</div>
+      <button class="modal-close" id="btn-cerrar-emitir"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="emitir-body" style="padding:20px"></div>
+  </div>
+</div>
+
+<!-- MODAL CORREO -->
+<div class="modal-overlay" id="modal-correo">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-mail"></i> Enviar Comprobante</div>
+      <button class="modal-close" id="btn-cerrar-correo"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <input type="hidden" id="correo-venta-id">
+      <div class="form-group">
+        <label class="form-label">Correo del cliente *</label>
+        <input type="email" class="form-control" id="correo-email" placeholder="cliente@ejemplo.com">
+      </div>
+      <div id="correo-aviso-adjuntos" style="display:none;font-size:11px;color:var(--success);margin-top:8px">
+        <i class="ti ti-paperclip"></i> Se adjuntarán el PDF, el XML firmado y el CDR de SUNAT.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar-correo">Cancelar</button>
+      <button class="btn btn-primary" id="btn-enviar-correo"><i class="ti ti-send"></i> Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DNI PARA EMITIR -->
+<div class="modal-overlay" id="modal-asignar-doc">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-id-badge"></i> Asignar documento al cliente</div>
+      <button class="modal-close" id="btn-cerrar-asignar-doc"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <input type="hidden" id="asignar-venta-id">
+      <div style="font-size:13px;color:var(--texto-muted);margin-bottom:14px">
+        Para emitir un comprobante necesitas que el cliente tenga un DNI o RUC asociado. Búscalo aquí:
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="text" class="form-control" id="asignar-doc-inp"
+               placeholder="DNI o RUC del cliente" maxlength="11" inputmode="numeric">
+        <button class="btn btn-primary btn-sm" id="btn-asignar-buscar" style="white-space:nowrap">
+          <i class="ti ti-search"></i>
+        </button>
+      </div>
+      <div id="asignar-resultado" style="font-size:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VISOR DE COMPROBANTE (PDF SUNAT con QR) -->
+<div class="modal-overlay" id="modal-visor">
+  <div class="modal" style="max-width:880px;width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-file-invoice"></i> <span id="visor-titulo">Comprobante</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-visor"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:0;background:#525659">
+      <iframe id="visor-iframe" style="width:100%;height:78vh;border:none;display:block"></iframe>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" id="btn-visor-xml-sf" style="display:none">
+        <i class="ti ti-file-code"></i> XML sin firmar
+      </button>
+      <button class="btn btn-outline btn-sm" id="btn-visor-xml" style="display:none">
+        <i class="ti ti-file-code"></i> XML firmado
+      </button>
+      <button class="btn btn-outline btn-sm" id="btn-visor-cdr" style="display:none">
+        <i class="ti ti-certificate"></i> CDR
+      </button>
+      <button class="btn btn-outline btn-sm" id="btn-visor-descargar">
+        <i class="ti ti-download"></i> Descargar
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-visor-imprimir">
+        <i class="ti ti-printer"></i> Imprimir QR
+      </button>
+    </div>
+  </div>
+</div>

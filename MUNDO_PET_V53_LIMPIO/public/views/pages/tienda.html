@@ -1,0 +1,147 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-building-store"></i> Gestión de la tienda web</h2>
+    <p>Configura la presentación, los pagos y las tarifas de delivery del Ecommerce.</p>
+  </div>
+  <a class="btn btn-outline" href="/tienda" target="_blank" rel="noopener">
+    <i class="ti ti-external-link"></i> Ver tienda
+  </a>
+</div>
+<div class="card" style="padding:20px;margin-bottom:18px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    <div>
+      <h3 style="margin:0 0 4px"><i class="ti ti-photo"></i> Sliders del Ecommerce</h3>
+      <p style="margin:0;color:var(--texto-muted);font-size:12px">Administra las imágenes principales de la tienda.</p>
+    </div>
+    <form id="td-slider-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="td-slider" accept=".jpg,.jpeg,.png,.webp,image/png,image/jpeg,image/webp" class="form-control file-image" required>
+      <button class="btn btn-primary"><i class="ti ti-upload"></i> Subir slider</button>
+    </form>
+  </div>
+  <div id="td-sliders" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+    <div class="loading-center"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<div class="card" style="padding:20px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    <div>
+      <h3 style="margin:0 0 4px"><i class="ti ti-credit-card"></i> Medios de pago de la tienda</h3>
+      <p style="margin:0;color:var(--texto-muted);font-size:12px">Configura la información que verá el cliente al pagar.</p>
+    </div>
+    <button class="btn btn-primary" id="td-guardar-pagos"><i class="ti ti-device-floppy"></i> Guardar medios de pago</button>
+  </div>
+
+  <section class="card td-delivery-card">
+    <div class="td-section-title"><div class="td-icon"><i class="ti ti-truck-delivery"></i></div><div><b>Tarifas de delivery</b><span>La tarifa base incluye la primera unidad. El cargo adicional se aplica desde la segunda unidad.</span></div><button id="td-nueva-tarifa" class="btn btn-outline"><i class="ti ti-plus"></i> Nueva tarifa</button></div>
+    <div class="td-delivery-rules">
+      <article><i class="ti ti-package"></i><div><b>Primera unidad incluida</b><span>La tarifa base cubre el inicio del envío.</span></div></article>
+      <article><i class="ti ti-packages"></i><div><b>Unidades adicionales</b><span>Se cobra: cantidad total − 1.</span></div></article>
+      <article><i class="ti ti-gift"></i><div><b>Envío gratuito</b><span>Se activa al alcanzar el subtotal configurado.</span></div></article>
+    </div>
+    <div class="td-delivery-defaults">
+      <div class="form-group"><label class="form-label">Tarifa general (S/)</label><input class="form-control" id="td-delivery-costo" type="number" min="0" step="0.10" placeholder="8.00"></div>
+      <div class="form-group"><label class="form-label">Cargo por unidad adicional (S/)</label><input class="form-control" id="td-delivery-unidad" type="number" min="0" step="0.10" placeholder="0.50"></div>
+      <div class="form-group"><label class="form-label">Gratis desde (S/)</label><input class="form-control" id="td-delivery-gratis" type="number" min="0" step="1" placeholder="150.00"></div>
+    </div>
+    <div class="td-delivery-simulator">
+      <div class="td-simulator-heading"><b>Simulador de la tarifa general</b><span>Comprueba el importe exacto antes de guardar.</span></div>
+      <div class="td-simulator-fields">
+        <label>Unidades<input id="td-preview-units" class="form-control" type="number" min="1" max="10000" value="1"></label>
+        <label>Subtotal de productos (S/)<input id="td-preview-subtotal" class="form-control" type="number" min="0" step="0.10" value="0"></label>
+      </div>
+      <div id="td-delivery-preview-result" class="td-delivery-result"><strong>S/ 0.00</strong><small>Tarifa estimada</small></div>
+    </div>
+    <div class="td-tariff-list-heading"><div><b>Tarifas registradas</b><span>Se muestran en un orden fijo y sin superponer columnas.</span></div></div>
+    <div class="table-responsive td-tariff-table"><table class="table"><thead><tr><th>Tarifa</th><th>Zona</th><th>Sucursal</th><th>Base</th><th>Unidad adicional</th><th>Gratis desde</th><th>Estado</th><th class="td-actions-head">Acciones</th></tr></thead><tbody id="td-tarifas-body"><tr><td colspan="8"><div class="loading-center"><div class="spinner"></div></div></td></tr></tbody></table></div>
+  </section>
+
+  <div id="td-pagos-grid" class="td-payments-grid">
+
+    <section class="card td-payment-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <div><b style="font-size:16px">Yape</b><div style="font-size:11px;color:var(--texto-muted)">QR o imagen de pago</div></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="td-yape-activo"> Publicar</label>
+      </div>
+      <div class="form-group"><label class="form-label">Número</label><input class="form-control" id="td-yape-numero" maxlength="20" placeholder="999 999 999"></div>
+      <div class="form-group"><label class="form-label">Titular</label><input class="form-control" id="td-yape-titular" maxlength="120" placeholder="Nombre del titular"></div>
+      <div class="td-pay-preview" id="td-yape-preview"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="file" id="td-yape-file" accept=".jpg,.jpeg,.png,.webp,image/png,image/jpeg,image/webp" class="form-control file-image" style="flex:1">
+        <button class="btn btn-outline" type="button" onclick="_tdSubirPago('yape')"><i class="ti ti-upload"></i></button>
+        <button class="btn btn-danger" type="button" onclick="_tdEliminarPago('yape')" title="Quitar imagen"><i class="ti ti-trash"></i></button>
+      </div>
+    </section>
+
+    <section class="card td-payment-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <div><b style="font-size:16px">Plin</b><div style="font-size:11px;color:var(--texto-muted)">QR o imagen de pago</div></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="td-plin-activo"> Publicar</label>
+      </div>
+      <div class="form-group"><label class="form-label">Número</label><input class="form-control" id="td-plin-numero" maxlength="20" placeholder="999 999 999"></div>
+      <div class="form-group"><label class="form-label">Titular</label><input class="form-control" id="td-plin-titular" maxlength="120" placeholder="Nombre del titular"></div>
+      <div class="td-pay-preview" id="td-plin-preview"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="file" id="td-plin-file" accept=".jpg,.jpeg,.png,.webp,image/png,image/jpeg,image/webp" class="form-control file-image" style="flex:1">
+        <button class="btn btn-outline" type="button" onclick="_tdSubirPago('plin')"><i class="ti ti-upload"></i></button>
+        <button class="btn btn-danger" type="button" onclick="_tdEliminarPago('plin')" title="Quitar imagen"><i class="ti ti-trash"></i></button>
+      </div>
+    </section>
+
+    <section class="card td-payment-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <div><b style="font-size:16px">Transferencia bancaria</b><div style="font-size:11px;color:var(--texto-muted)">Datos de cuenta e imagen informativa</div></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="td-transferencia-activo"> Publicar</label>
+      </div>
+      <div class="form-group"><label class="form-label">Banco</label><input class="form-control" id="td-transferencia-banco" maxlength="100" placeholder="BCP, Interbank..."></div>
+      <div class="form-group"><label class="form-label">Titular</label><input class="form-control" id="td-transferencia-titular" maxlength="120"></div>
+      <div class="form-group"><label class="form-label">Cuenta</label><input class="form-control" id="td-transferencia-cuenta" maxlength="80"></div>
+      <div class="form-group"><label class="form-label">CCI</label><input class="form-control" id="td-transferencia-cci" maxlength="80"></div>
+      <div class="td-pay-preview" id="td-transferencia-preview"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="file" id="td-transferencia-file" accept=".jpg,.jpeg,.png,.webp,image/png,image/jpeg,image/webp" class="form-control file-image" style="flex:1">
+        <button class="btn btn-outline" type="button" onclick="_tdSubirPago('transferencia')"><i class="ti ti-upload"></i></button>
+        <button class="btn btn-danger" type="button" onclick="_tdEliminarPago('transferencia')" title="Quitar imagen"><i class="ti ti-trash"></i></button>
+      </div>
+    </section>
+
+    <section class="card td-payment-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <div><b style="font-size:16px">POS Izipay</b><div style="font-size:11px;color:var(--texto-muted)">Información para pago con tarjeta</div></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="td-izipay-activo"> Publicar</label>
+      </div>
+      <div class="form-group"><label class="form-label">Texto mostrado al cliente</label><textarea class="form-control" id="td-izipay-instrucciones" rows="3" maxlength="500" placeholder="El pago se confirmará mediante POS Izipay..."></textarea></div>
+      <div class="td-pay-preview" id="td-izipay-preview"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="file" id="td-izipay-file" accept=".jpg,.jpeg,.png,.webp,image/png,image/jpeg,image/webp" class="form-control file-image" style="flex:1">
+        <button class="btn btn-outline" type="button" onclick="_tdSubirPago('izipay')"><i class="ti ti-upload"></i></button>
+        <button class="btn btn-danger" type="button" onclick="_tdEliminarPago('izipay')" title="Quitar imagen"><i class="ti ti-trash"></i></button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<style>
+.td-pay-preview{min-height:120px;border:1px dashed var(--card-border);border-radius:10px;margin:10px 0;padding:10px;display:flex;align-items:center;justify-content:center;color:var(--texto-muted);font-size:12px;background:var(--input-bg)}
+.td-pay-preview img{max-width:100%;max-height:180px;object-fit:contain;border-radius:8px}
+
+.file-image{padding:5px!important;border:1px solid #86efac!important;background:#f0fdf4!important;color:#166534!important;border-radius:10px!important}
+.file-image::file-selector-button{border:1px solid #16a34a;background:#fff;color:#15803d;border-radius:8px;padding:8px 12px;margin-right:10px;font-weight:700;cursor:pointer}
+.file-image::file-selector-button:hover{background:#dcfce7}
+.td-pay-preview img{cursor:zoom-in}
+.td-preview-button,.td-slider-image{border:0;background:transparent;padding:0;cursor:zoom-in;width:100%}.td-preview-button img{max-width:100%;max-height:180px}.td-slider-card{border:1px solid var(--card-border);border-radius:14px;background:var(--card-bg);overflow:hidden;box-shadow:0 5px 16px rgba(15,23,42,.05)}.td-slider-image img{display:block;width:100%;height:170px;object-fit:cover}.td-slider-meta{padding:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.td-slider-meta>div{flex:1;min-width:150px}.td-slider-meta small{display:block;color:var(--texto-muted);font-size:11px;margin-top:3px}.td-slider-meta label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--texto-muted)}.td-slider-meta input{width:72px}.td-actions{white-space:nowrap;display:flex;gap:5px}
+</style>
+
+<style id="td-delivery-layout">
+.td-delivery-card{padding:20px;border:1px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#fff);margin-bottom:18px;border-radius:18px;overflow:hidden}
+.td-section-title{display:flex;align-items:center;gap:12px;margin-bottom:16px}.td-section-title>div:nth-child(2){flex:1;min-width:200px}.td-section-title b{display:block;font-size:17px;color:#0f172a}.td-section-title span{display:block;font-size:12px;color:#64748b;margin-top:3px}.td-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:13px;background:#dcfce7;color:#15803d;font-size:24px;flex:0 0 auto}
+.td-delivery-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:4px 0 16px}.td-delivery-rules article{display:flex;gap:10px;align-items:flex-start;padding:13px;border:1px solid #d8eee0;background:#fff;border-radius:13px;min-width:0}.td-delivery-rules i{font-size:22px;color:#16a34a}.td-delivery-rules b{display:block;font-size:12px;color:#172033}.td-delivery-rules span{display:block;font-size:10px;color:#64748b;margin-top:3px;line-height:1.45}
+.td-delivery-defaults{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:13px}.td-delivery-defaults .form-group{margin:0}.td-delivery-defaults .form-control{height:44px}
+.td-delivery-simulator{display:grid;grid-template-columns:minmax(230px,1.1fr) minmax(360px,1.4fr) minmax(175px,.65fr);gap:18px;align-items:center;margin-top:18px;padding:18px;border-radius:16px;background:#0f172a;color:#fff;overflow:hidden}.td-simulator-heading b{display:block;font-size:16px;line-height:1.25}.td-simulator-heading span{display:block;margin-top:5px;color:#cbd5e1;font-size:12px;line-height:1.45}.td-simulator-fields{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:12px}.td-simulator-fields label{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:800;color:#e2e8f0}.td-simulator-fields .form-control{width:100%;height:44px;margin:0;background:#fff;color:#0f172a}.td-delivery-result{min-height:78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:13px;padding:12px;text-align:center}.td-delivery-result strong{font-size:24px;line-height:1}.td-delivery-result small{font-size:10px;color:#15803d;font-weight:700;line-height:1.35}
+.td-tariff-list-heading{display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px}.td-tariff-list-heading b{display:block;color:#0f172a;font-size:15px}.td-tariff-list-heading span{display:block;color:#64748b;font-size:11px;margin-top:3px}.td-tariff-table{width:100%;max-width:100%;overflow-x:auto;border:1px solid #dfe7e2;border-radius:14px;background:#fff}.td-tariff-table .table{width:100%;min-width:960px;border-collapse:separate;border-spacing:0;table-layout:fixed;margin:0}.td-tariff-table th,.td-tariff-table td{padding:13px 14px;text-align:left;vertical-align:middle;border-bottom:1px solid #edf2ef;line-height:1.35;overflow-wrap:anywhere}.td-tariff-table th{background:#f8fafc;color:#475569;font-size:10px;font-weight:900;letter-spacing:.035em;text-transform:uppercase;white-space:nowrap}.td-tariff-table tbody tr:last-child td{border-bottom:0}.td-tariff-table th:nth-child(1),.td-tariff-table td:nth-child(1){width:17%}.td-tariff-table th:nth-child(2),.td-tariff-table td:nth-child(2){width:17%}.td-tariff-table th:nth-child(3),.td-tariff-table td:nth-child(3){width:14%}.td-tariff-table th:nth-child(4),.td-tariff-table td:nth-child(4){width:11%}.td-tariff-table th:nth-child(5),.td-tariff-table td:nth-child(5){width:14%}.td-tariff-table th:nth-child(6),.td-tariff-table td:nth-child(6){width:11%}.td-tariff-table th:nth-child(7),.td-tariff-table td:nth-child(7){width:9%}.td-tariff-table th:nth-child(8),.td-tariff-table td:nth-child(8){width:7%}.td-actions-head{text-align:center!important}.td-actions{display:flex;justify-content:center;align-items:center;gap:7px;white-space:nowrap}
+.td-payments-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.td-payment-card{padding:18px!important;border:1px solid #dfe7e2!important;border-radius:16px!important;box-shadow:0 8px 24px rgba(15,23,42,.055);min-width:0}.td-payment-card .form-group{margin-bottom:12px}.td-payment-card>div:first-child{padding-bottom:11px;border-bottom:1px solid #edf2ef}.td-payment-card input[type=checkbox]{accent-color:#16a34a;width:17px;height:17px}
+.td-tariff-form{display:grid;gap:13px;text-align:left}.td-tariff-form label{display:flex;flex-direction:column;gap:6px;color:#475569;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}.td-tariff-form input,.td-tariff-form select{width:100%!important;margin:0!important;height:44px!important;border:1px solid #cbd5e1!important;border-radius:10px!important;padding:0 12px!important;font-size:14px!important;color:#0f172a!important;background:#fff!important}.td-tariff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.td-tariff-form .td-check{flex-direction:row;align-items:center;text-transform:none;font-size:13px;background:#f0fdf4;border:1px solid #bbf7d0;padding:11px;border-radius:10px}.td-tariff-form .td-check input{width:18px!important;height:18px!important}.td-tariff-help{padding:12px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:11px;color:#1e3a8a;font-size:12px;line-height:1.5;text-transform:none!important;letter-spacing:0!important}.td-tariff-preview{padding:13px;border-radius:11px;background:#0f172a;color:#fff;font-size:13px;text-transform:none!important;letter-spacing:0!important}.td-tariff-preview b{display:block;font-size:18px;color:#86efac;margin-top:4px}.td-tariff-preview small{display:block;color:#cbd5e1;margin-top:3px}.swal2-popup.td-tariff-popup{border-radius:18px!important;padding:22px!important}.swal2-popup.td-tariff-popup .swal2-html-container{margin:12px 0 0!important;overflow:visible!important}
+@media(max-width:1050px){.td-payments-grid{grid-template-columns:1fr}.td-delivery-simulator{grid-template-columns:1fr 1fr}.td-simulator-heading{grid-column:1/-1}.td-delivery-result{min-height:68px}}
+@media(max-width:760px){.td-section-title{align-items:flex-start;flex-wrap:wrap}.td-section-title .btn{width:100%}.td-delivery-rules,.td-delivery-defaults,.td-tariff-grid{grid-template-columns:1fr}.td-delivery-simulator{grid-template-columns:1fr;gap:13px;padding:15px}.td-simulator-heading{grid-column:auto}.td-simulator-fields{grid-template-columns:1fr}.td-tariff-list-heading span{display:none}.td-payment-card{padding:14px!important}}
+</style>

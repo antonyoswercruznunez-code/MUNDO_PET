@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mundo Pet — Tienda</title>
+<script src="https://accounts.google.com/gsi/client?hl=es" async defer referrerpolicy="strict-origin-when-cross-origin"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css" rel="stylesheet">
+<style>
+:root{
+  --brand:#18a94b; --brand-dark:#0f7a37; --brand-soft:#ecfdf3; --brand-blue:#16b9d4;
+  --ink:#1c2434; --muted:#6b7280; --line:#e8eaed; --bg:#f7f8fa;
+  --ok:#16a34a; --radius:16px; --shadow:0 4px 20px rgba(0,0,0,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:var(--ink);line-height:1.5}
+img{display:block;max-width:100%}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+a{text-decoration:none;color:inherit}
+.container{max-width:1240px;margin:0 auto;padding:0 20px}
+
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:50;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.topbar{display:flex;align-items:center;gap:20px;padding:14px 0}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--brand);flex-shrink:0}
+.logo img{width:42px;height:42px;object-fit:contain;border-radius:10px}
+.search{flex:1;position:relative;max-width:560px}
+.search input{width:100%;padding:12px 44px 12px 18px;border:2px solid var(--line);border-radius:30px;font-size:14px;outline:none;transition:.2s}
+.search input:focus{border-color:var(--brand)}
+.search i{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:20px}
+.header-actions{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.icon-btn{position:relative;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--ink);background:var(--bg);transition:.2s}
+.icon-btn:hover{background:var(--brand-soft);color:var(--brand)}
+.cart-badge{position:absolute;top:-4px;right:-4px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.btn-user{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:30px;background:var(--brand);color:#fff;font-weight:600;font-size:14px;transition:.2s}
+.btn-user:hover{background:var(--brand-dark)}
+.btn-user img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+
+/* ── CATEGORÍAS BAR ── */
+.cats-bar{border-top:1px solid var(--line);overflow-x:auto}
+.cats-bar .container{display:flex;gap:8px;padding-top:10px;padding-bottom:10px}
+.cat-chip{white-space:nowrap;padding:8px 18px;border-radius:30px;font-size:13px;font-weight:500;color:var(--muted);background:var(--bg);transition:.2s}
+.cat-chip:hover{background:var(--brand-soft);color:var(--brand)}
+.cat-chip.active{background:var(--brand);color:#fff}
+
+/* ── SLIDER ── */
+.slider{position:relative;margin:22px 0;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.slides{display:flex;transition:transform .5s ease}
+.slide{min-width:100%;aspect-ratio:1240/380;background:#ddd}
+.slide img{width:100%;height:100%;object-fit:cover}
+.slider-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.6);cursor:pointer;transition:.2s}
+.dot.active{background:#fff;width:26px;border-radius:5px}
+.slider-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--shadow)}
+.slider-nav.prev{left:16px}.slider-nav.next{right:16px}
+
+/* ── SECCIÓN PRODUCTOS ── */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 0 16px}
+.section-head h2{font-size:22px;font-weight:700}
+.orden-sel{padding:9px 14px;border:2px solid var(--line);border-radius:10px;font-size:13px;outline:none;background:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;padding-bottom:40px}
+.card{background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:.25s;display:flex;flex-direction:column;position:relative}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.1)}
+.card-img{aspect-ratio:1;background:var(--brand-soft);overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.card-img img{width:100%;height:100%;object-fit:cover;transition:.4s}
+.card:hover .card-img img{transform:scale(1.06)}
+.card-img .noimg{font-size:54px;color:#d9b8ac}
+.badge-oferta{position:absolute;top:12px;left:12px;background:var(--brand);color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;z-index:2}
+.card-body{padding:14px 16px 16px;display:flex;flex-direction:column;flex:1}
+.card-cat{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.card-name{font-size:15px;font-weight:600;margin-bottom:8px;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:44px}
+.card-price{display:flex;align-items:baseline;gap:8px;margin-top:auto;margin-bottom:12px}
+.price-now{font-size:20px;font-weight:800;color:var(--brand)}
+.price-old{font-size:13px;color:var(--muted);text-decoration:line-through}
+.price-saving{font-size:12px;color:#15803d;font-weight:800;margin:-7px 0 12px}
+.btn-add{width:100%;padding:11px;border-radius:12px;background:var(--brand);color:#fff;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
+.btn-add:hover{background:var(--brand-dark)}
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state i{font-size:60px;color:var(--line);display:block;margin-bottom:14px}
+
+/* ── OVERLAY / DRAWER ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;opacity:0;visibility:hidden;transition:.25s}
+.overlay.show{opacity:1;visibility:visible}
+.drawer{position:fixed;top:0;right:-460px;width:440px;max-width:92vw;height:100%;background:#fff;z-index:101;transition:right .3s ease;display:flex;flex-direction:column;box-shadow:-6px 0 30px rgba(0,0,0,.12)}
+.drawer.show{right:0}
+.drawer-head{padding:20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.drawer-head h3{font-size:18px;font-weight:700}
+.drawer-body{flex:1;overflow-y:auto;padding:20px}
+.drawer-foot{padding:20px;border-top:1px solid var(--line)}
+.close-x{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--bg);color:var(--muted)}
+.close-x:hover{background:var(--brand-soft);color:var(--brand)}
+
+/* Cart item */
+.cart-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.cart-item img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--brand-soft)}
+.cart-item-info{flex:1}
+.cart-item-name{font-size:14px;font-weight:600;margin-bottom:4px}
+.cart-item-price{font-size:13px;color:var(--brand);font-weight:700}
+.qty{display:flex;align-items:center;gap:8px;margin-top:8px}
+.qty button{width:28px;height:28px;border-radius:8px;background:var(--bg);font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;justify-content:center}
+.qty button:hover{background:var(--brand-soft);color:var(--brand)}
+.qty span{min-width:24px;text-align:center;font-weight:600}
+.cart-item-del{color:var(--muted);font-size:18px;align-self:flex-start}
+.cart-item-del:hover{color:#dc2626}
+.cart-total-row{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px}
+.cart-total-row.big{font-size:20px;font-weight:800}
+.cart-total-row.big span:last-child{color:var(--brand)}
+.btn-block{width:100%;padding:14px;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;font-size:15px;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-block:hover{background:var(--brand-dark)}
+.btn-block.secondary{background:var(--bg);color:var(--ink);margin-bottom:10px}
+.btn-block.secondary:hover{background:var(--line)}
+
+/* ── MODAL ── */
+.modal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-card{background:#fff;border-radius:20px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-card.wide{max-width:640px}
+.modal-head{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal-head h3{font-size:19px;font-weight:700}
+.modal-body{padding:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink)}
+.field input,.field select,.field textarea{width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:12px;font-size:14px;outline:none;transition:.2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
+.mp-file-picker{display:flex!important;align-items:center;gap:10px;width:100%;padding:13px 15px;border:2px dashed #8dd9a7;border-radius:14px;background:#f6fff8;color:var(--brand-dark)!important;font-weight:700;cursor:pointer;transition:.2s}
+.mp-file-picker:hover{border-color:var(--brand);background:var(--brand-soft);transform:translateY(-1px)}
+.mp-file-picker i{font-size:22px;color:var(--brand)}
+.mp-file-picker input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.payment-zoomable{cursor:zoom-in;transition:.2s}.payment-zoomable:hover{transform:scale(1.015);box-shadow:0 10px 28px rgba(15,122,55,.18)}
+
+.tabs{display:flex;gap:8px;margin-bottom:22px;background:var(--bg);padding:5px;border-radius:12px}
+.tabs button{flex:1;padding:11px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted);transition:.2s}
+.tabs button.active{background:#fff;color:var(--brand);box-shadow:var(--shadow)}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:13px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.gbtn-wrap{display:flex;justify-content:center;margin-bottom:6px}
+.radio-group{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.radio-card{padding:14px;border:2px solid var(--line);border-radius:12px;cursor:pointer;text-align:center;transition:.2s;font-size:14px;font-weight:600}
+.radio-card.active{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.radio-card i{font-size:24px;display:block;margin-bottom:6px}
+.metodo-pago{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.metodo-chip{padding:10px 16px;border:2px solid var(--line);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+.metodo-chip.active{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+
+/* Product detail modal */
+.pd-img{aspect-ratio:1;border-radius:16px;overflow:hidden;background:var(--brand-soft);margin-bottom:18px}
+.pd-img img{width:100%;height:100%;object-fit:cover}
+.pd-cat{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.pd-name{font-size:22px;font-weight:700;margin:6px 0}
+.pd-price{font-size:28px;font-weight:800;color:var(--brand);margin:12px 0}
+.pd-desc{color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.7}
+
+/* Toast */
+.toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:10px;align-items:center}
+.toast{background:var(--ink);color:#fff;padding:14px 22px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;animation:slideUp .3s ease}
+.toast.ok{background:var(--ok)}.toast.err{background:#dc2626}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* Footer */
+footer{background:var(--ink);color:#fff;margin-top:40px;padding:40px 0 24px}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:30px;margin-bottom:24px}
+.foot-grid h4{font-size:16px;margin-bottom:14px}
+.foot-grid p,.foot-grid a{color:#9ca3af;font-size:14px;margin-bottom:8px;display:block}
+.foot-social{display:flex;gap:12px;margin-top:12px}
+.foot-social a{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
+.foot-social a:hover{background:var(--brand)}
+.foot-bottom{border-top:1px solid rgba(255,255,255,.1);padding-top:20px;text-align:center;color:#9ca3af;font-size:13px}
+.loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
+.spin{width:40px;height:40px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media(max-width:768px){
+  .search{order:3;flex-basis:100%;max-width:none}
+  .topbar{flex-wrap:wrap}
+  .foot-grid{grid-template-columns:1fr}
+  .drawer{width:100%}
+}
+
+
+.store-hero{margin:24px auto 8px;display:grid;grid-template-columns:1.25fr .75fr;gap:18px;background:linear-gradient(135deg,#083b2a,#0f7a37 58%,#16b9d4);border-radius:24px;padding:32px;color:#fff;box-shadow:0 18px 45px rgba(15,122,55,.22);overflow:hidden;position:relative}.store-hero:after{content:'';position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.08);right:-70px;top:-120px}.store-hero h1{font-size:clamp(28px,4vw,46px);line-height:1.08;margin-bottom:12px}.store-hero p{max-width:650px;color:#d1fae5;font-size:15px}.hero-pills{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}.hero-pills span{display:inline-flex;gap:7px;align-items:center;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18);padding:8px 11px;border-radius:999px;font-size:12px;font-weight:700}.hero-side{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:center;position:relative;z-index:1}.hero-side article{background:#fff;color:#123524;border-radius:16px;padding:16px;min-height:112px;display:flex;flex-direction:column;justify-content:center}.hero-side i{font-size:28px;color:var(--brand);margin-bottom:8px}.hero-side b{font-size:14px}.hero-side small{color:#64748b;margin-top:4px}.section-head{background:#fff;border:1px solid #edf2f7;border-radius:15px;padding:14px 16px;box-shadow:0 5px 18px rgba(15,23,42,.04)}.grid{grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:20px}.card{border:1px solid #edf2f7}.card-cat{font-weight:700;color:#4b7b5e}.btn-add{box-shadow:0 7px 16px rgba(24,169,75,.18)}.store-trust{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0 6px}.store-trust article{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:11px}.store-trust i{font-size:25px;color:var(--brand)}.store-trust b{display:block;font-size:13px}.store-trust small{color:var(--muted);font-size:11px}@media(max-width:820px){.store-hero{grid-template-columns:1fr;padding:24px}.hero-side{grid-template-columns:1fr 1fr}.store-trust{grid-template-columns:1fr}}@media(max-width:520px){.hero-side{grid-template-columns:1fr}}
+
+
+/* V50: acabado comercial y responsive */
+body{background:radial-gradient(circle at 10% 0,#f0fdf4 0,transparent 28%),linear-gradient(180deg,#fbfefc 0,#f4f7f5 100%)}
+header{background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid rgba(226,232,240,.85)}
+.topbar{min-height:76px}.logo{font-size:22px}.search input{background:#f8fafc;border-color:#e2e8f0;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.search input:focus{background:#fff;box-shadow:0 0 0 4px rgba(24,169,75,.11)}
+.cats-bar{background:#fff}.cat-chip{border:1px solid transparent}.cat-chip:hover{border-color:#bbf7d0}
+.store-hero{min-height:290px;align-items:center}.store-hero h1{max-width:720px}.store-trust article{box-shadow:0 8px 24px rgba(15,23,42,.045)}
+.section-head{position:sticky;top:96px;z-index:18;backdrop-filter:blur(12px);background:rgba(255,255,255,.94)}
+.grid{align-items:stretch}.card{min-height:430px;border-radius:20px;box-shadow:0 10px 30px rgba(15,23,42,.065)}
+.card:hover{transform:translateY(-7px);box-shadow:0 20px 45px rgba(15,23,42,.13);border-color:#bbf7d0}
+.card-img{height:245px;aspect-ratio:auto;padding:12px;background:linear-gradient(145deg,#f0fdf4,#f8fafc)}
+.card-img img{object-fit:contain;border-radius:12px}.card-body{padding:18px}.card-name{font-size:16px;line-height:1.45;min-height:48px}.price-now{font-size:24px}.btn-add{min-height:48px;border-radius:14px;font-size:15px;box-shadow:0 10px 22px rgba(24,169,75,.22)}
+.btn-add:active{transform:translateY(1px)}
+.drawer{border-radius:24px 0 0 24px}.modal-card{border:1px solid rgba(226,232,240,.9);box-shadow:0 35px 90px rgba(15,23,42,.3)}
+footer{background:linear-gradient(145deg,#071f17,#0b2d21);border-top:4px solid var(--brand)}
+@media(max-width:760px){.topbar{gap:10px;flex-wrap:wrap}.logo{font-size:18px}.search{order:3;flex-basis:100%;max-width:none}.store-hero{margin-top:14px;min-height:auto}.section-head{top:128px}.card{min-height:390px}.card-img{height:210px}}
+@media(max-width:520px){.container{padding-left:14px;padding-right:14px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{min-height:340px;border-radius:15px}.card-img{height:150px;padding:7px}.card-body{padding:12px}.card-name{font-size:13px;min-height:40px}.price-now{font-size:18px}.btn-add{font-size:12px;min-height:42px}.store-trust{display:none}.store-hero h1{font-size:27px}.hero-pills{display:none}}
+</style>
+
+<style id="store-v52-cart-styles">
+.qty input{width:64px;height:32px;border:1px solid var(--line);border-radius:8px;text-align:center;font-weight:800;color:var(--ink);background:#fff;outline:none}.qty input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(22,163,74,.12)}.cart-item-price{display:flex;flex-direction:column;align-items:flex-start;gap:3px}.cart-item-price small{font-size:10px;color:var(--muted);text-decoration:line-through}.cart-volume-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;background:#ecfdf5;color:#15803d;font-size:10px;font-weight:800}.cart-line-subtotal{font-size:11px;color:var(--muted);margin-top:7px}.cart-foot-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;color:var(--muted)}.cart-clear{border:0;background:#fff1f2;color:#be123c;padding:8px 10px;border-radius:9px;font-weight:800;cursor:pointer}.cart-clear:hover{background:#ffe4e6}.cart-price-note{display:block;color:var(--muted);line-height:1.45;margin:-2px 0 12px}.store-trust{margin-top:24px}
+@media(max-width:520px){.qty input{width:52px}.cart-item{grid-template-columns:58px 1fr auto}.cart-item img{width:58px;height:58px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="container topbar">
+    <a href="/tienda" class="logo" id="brand">
+      <span id="brand-logo"><i class="ti ti-paw"></i></span>
+      <span id="brand-name">Mundo Pet</span>
+    </a>
+    <div class="search">
+      <input type="text" id="buscador" placeholder="Buscar productos, marcas...">
+      <i class="ti ti-search"></i>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="btn-cart" title="Carrito">
+        <i class="ti ti-shopping-cart"></i>
+        <span class="cart-badge" id="cart-badge" style="display:none">0</span>
+      </button>
+      <button class="btn-user" id="btn-user">
+        <i class="ti ti-user"></i> <span id="user-label">Ingresar</span>
+      </button>
+    </div>
+  </div>
+  <div class="cats-bar">
+    <div class="container" id="cats-bar">
+      <button class="cat-chip active" data-cat="">Todos</button>
+    </div>
+  </div>
+</header>
+
+
+<section class="container store-trust"><article><i class="ti ti-receipt"></i><div><b>Nota de venta</b><small>Se genera al aprobar el pago.</small></div></article><article><i class="ti ti-box"></i><div><b>Pedido separado</b><small>Cada sucursal prepara su parte.</small></div></article><article><i class="ti ti-headset"></i><div><b>Atención directa</b><small>Datos y seguimiento en tu cuenta.</small></div></article></section>
+
+<div class="container">
+<div class="slider" id="slider" style="display:none">
+    <div class="slides" id="slides"></div>
+    <button class="slider-nav prev" onclick="Tienda.slidePrev()"><i class="ti ti-chevron-left"></i></button>
+    <button class="slider-nav next" onclick="Tienda.slideNext()"><i class="ti ti-chevron-right"></i></button>
+    <div class="slider-dots" id="slider-dots"></div>
+  </div>
+<div class="section-head">
+    <h2 id="section-title">Productos</h2>
+    <select class="orden-sel" id="orden" onchange="Tienda.cargarProductos()">
+      <option value="">Más recientes</option>
+      <option value="precio_asc">Precio: menor a mayor</option>
+      <option value="precio_desc">Precio: mayor a menor</option>
+      <option value="nombre">Nombre A-Z</option>
+    </select>
+  </div>
+  <div class="grid" id="grid">
+    <div class="loading"><div class="spin"></div>Cargando productos...</div>
+  </div>
+</div>
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h4 id="foot-nombre">Mundo Pet</h4>
+        <p id="foot-desc">Tu tienda de confianza.</p>
+        <div class="foot-social" id="foot-social"></div>
+      </div>
+      <div>
+        <h4>Contacto</h4>
+        <p id="foot-direccion"></p>
+        <p id="foot-horario"></p>
+      </div>
+      <div>
+        <h4>Mi cuenta</h4>
+        <a href="#" onclick="Tienda.abrirAuth();return false">Iniciar sesión</a>
+        <a href="#" onclick="Tienda.verPedidos();return false">Mis pedidos</a>
+      </div>
+    </div>
+    <div class="foot-bottom">© <span id="foot-year"></span> <span id="foot-empresa">Distribuciones MAOZ E.I.R.L.</span> — Todos los derechos reservados</div>
+  </div>
+</footer>
+<div class="overlay" id="overlay" onclick="Tienda.cerrarTodo()"></div>
+<div class="drawer" id="cart-drawer">
+  <div class="drawer-head">
+    <h3>Mi carrito</h3>
+    <button class="close-x" onclick="Tienda.cerrarTodo()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="drawer-body" id="cart-body"></div>
+  <div class="drawer-foot" id="cart-foot"></div>
+</div>
+<div id="modales"></div>
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="/tienda-app.js?v=52.0.0"></script>
+</body>
+</html>

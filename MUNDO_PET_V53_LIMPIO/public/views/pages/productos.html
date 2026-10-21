@@ -1,0 +1,287 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-package"></i> Gestión de Productos</h2>
+    <p>Administra el catálogo de productos</p>
+  </div>
+  <button class="btn btn-primary" id="btn-nuevo-producto">
+    <i class="ti ti-plus"></i> Nuevo Producto
+  </button>
+</div>
+
+<!-- Pestañas por sucursal (las llena el JS según permisos) -->
+<div id="prod-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--card-border)"></div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite" style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+    <div class="search-box">
+      <i class="ti ti-search"></i>
+      <input type="text" id="inp-buscar" placeholder="Buscar producto...">
+    </div>
+  </div>
+
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Sucursal</th>
+          <th>Precio Venta</th>
+          <th>Stock</th>
+          <th>Estado Stock</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-productos">
+        <tr><td colspan="7">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL PRODUCTO -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-package"></i>
+        <span id="modal-titulo">Nuevo Producto</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-modal">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="info">
+          <i class="ti ti-info-circle"></i> Información
+        </button>
+        <button class="tab-btn" data-tab="imagenes">
+          <i class="ti ti-photo"></i> Imágenes
+        </button>
+        <button class="tab-btn" data-tab="volumen">
+          <i class="ti ti-discount-2"></i> Precios por volumen
+        </button>
+      </div>
+
+      <!-- TAB INFO -->
+      <div class="tab-panel active" id="tab-info">
+        <input type="hidden" id="prod-id">
+        <div class="form-row">
+          <div class="form-group" style="grid-column:span 2">
+            <label class="form-label">Nombre *</label>
+            <input type="text" class="form-control" id="prod-nombre"
+                   placeholder="Nombre" maxlength="80">
+            <div class="campo-error" id="err-prod-nombre"
+                 style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" id="grupo-sucursal">
+            <label class="form-label">Sucursal *</label>
+            <select class="form-control" id="prod-sucursal">
+              <option value="">Selecciona sucursal</option>
+            </select>
+            <div class="campo-error" id="err-prod-sucursal"
+                 style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" id="prod-descripcion"
+                    rows="2" placeholder="Descripción"></textarea>
+          <div class="campo-error" id="err-prod-descripcion"
+               style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+        </div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Marca</label>
+            <input type="text" class="form-control" id="prod-marca"
+                   placeholder="Marca" maxlength="40">
+            <div class="campo-error" id="err-prod-marca"
+                 style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Precio Costo</label>
+            <input type="number" class="form-control" id="prod-precio-costo"
+                   placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Precio Venta *</label>
+            <input type="number" class="form-control" id="prod-precio-venta"
+                   placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">% Oferta</label>
+            <input type="number" class="form-control" id="prod-oferta"
+                   placeholder="0" min="0" max="100">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Stock Actual</label>
+            <input type="number" class="form-control" id="prod-stock"
+                   placeholder="0" min="0" readonly
+                   style="opacity:.6;cursor:not-allowed"
+                   title="El stock se gestiona desde el módulo de Inventario">
+            <div style="font-size:11px;color:var(--texto-muted);margin-top:4px">
+              <i class="ti ti-info-circle"></i>
+              Gestiona el stock desde <strong>Inventario</strong>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stock Mínimo</label>
+            <input type="number" class="form-control" id="prod-stock-min"
+                   placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Garantía (meses)</label>
+            <input type="number" class="form-control" id="prod-garantia"
+                   placeholder="0" min="0">
+          </div>
+        </div>
+
+          <div class="form-group">
+            <label class="form-label">Atributo Extra</label>
+            <input type="text" class="form-control" id="prod-atributo"
+                   placeholder="Atributo Extra" maxlength="40">
+            <div class="campo-error" id="err-prod-atributo"
+                 style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+          </div>
+        <div class="form-group" id="grupo-estado-prod" style="display:none">
+          <label class="form-label">Estado</label>
+          <select class="form-control" id="prod-estado">
+            <option value="0">Activo</option>
+            <option value="1">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- TAB IMÁGENES -->
+      <div class="tab-panel" id="tab-imagenes">
+        <div class="alert alert-info" id="prod-id-aviso" style="display:none">
+          <i class="ti ti-info-circle"></i>
+          Guarda el producto primero para subir imágenes
+        </div>
+        <div id="upload-zona" style="display:none">
+          <label for="inp-imagen"
+                 style="display:block;border:2px dashed var(--card-border);
+                        border-radius:10px;padding:30px;text-align:center;
+                        margin-bottom:16px;cursor:pointer;transition:border-color .2s"
+                 id="drop-zona"
+                 onmouseover="this.style.borderColor='var(--success)'"
+                 onmouseout="this.style.borderColor='var(--card-border)'">
+            <i class="ti ti-cloud-upload"
+               style="font-size:36px;color:var(--texto-muted);
+                      display:block;margin-bottom:8px"></i>
+            <p style="color:var(--texto-muted);font-size:13px">
+              Arrastra imágenes aquí o
+              <span style="color:var(--success);text-decoration:underline">
+                selecciona archivos
+              </span>
+            </p>
+            <p style="font-size:11px;color:var(--texto-muted);margin-top:4px">
+              Solo JPG, PNG o WEBP — máx. 5MB — puedes seleccionar varias
+            </p>
+            <input type="file" id="inp-imagen"
+                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                   style="display:none" multiple>
+          </label>
+
+          <div id="preview-container" style="display:none;margin-bottom:16px">
+            <div style="font-size:12px;color:var(--texto-muted);margin-bottom:10px;
+                        font-weight:600;text-transform:uppercase;letter-spacing:.4px">
+              Vista previa —
+              <span id="preview-count">0</span> imagen(es) seleccionada(s)
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px"
+                 id="preview-imgs"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="btn-subir-img">
+                <i class="ti ti-upload"></i> Subir todas
+              </button>
+              <button class="btn btn-outline btn-sm" id="btn-cancelar-preview">
+                <i class="ti ti-x"></i> Cancelar
+              </button>
+            </div>
+          </div>
+
+          <div style="font-size:12px;font-weight:600;color:var(--texto-muted);
+                      text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px"
+               id="galeria-titulo"></div>
+          <div id="galeria-imgs" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+
+      <!-- TAB PRECIOS POR VOLUMEN -->
+      <div class="tab-panel" id="tab-volumen">
+        <div class="alert alert-info" id="vol-id-aviso" style="display:none">
+          <i class="ti ti-info-circle"></i>
+          Guarda el producto primero para configurar precios por volumen
+        </div>
+        <div id="vol-zona" style="display:none">
+          <div style="font-size:12.5px;color:var(--texto-muted);margin-bottom:14px;line-height:1.6">
+            <i class="ti ti-discount-2" style="color:var(--rojo)"></i>
+            Define precios más bajos al comprar en cantidad. Ejemplo: <strong>desde 9 unidades → S/ 40.00</strong>.
+            El precio baja solo cuando la venta o cotización alcanza la cantidad indicada.
+          </div>
+
+          <!-- Formulario para agregar un escalón -->
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;
+                      background:var(--input-bg);border:1px solid var(--card-border);
+                      border-radius:10px;padding:14px;margin-bottom:16px">
+            <div style="flex:1;min-width:130px">
+              <label class="form-label">Desde cantidad</label>
+              <input type="number" class="form-control" id="vol-cantidad"
+                     placeholder="Ej. 9" min="2" step="1">
+            </div>
+            <div style="flex:1;min-width:130px">
+              <label class="form-label">Precio por unidad (S/)</label>
+              <input type="number" class="form-control" id="vol-precio"
+                     placeholder="Ej. 40.00" min="0" step="0.01">
+            </div>
+            <button class="btn btn-primary" id="btn-vol-agregar" style="white-space:nowrap">
+              <i class="ti ti-plus"></i> Agregar
+            </button>
+          </div>
+
+          <!-- Tabla de escalones -->
+          <div class="tabla-container">
+            <table class="tabla" style="font-size:13px">
+              <thead>
+                <tr>
+                  <th>Desde (uds)</th>
+                  <th style="text-align:right">Precio unitario</th>
+                  <th style="text-align:right">Ahorro vs. normal</th>
+                  <th style="text-align:right">Resultado vs. costo</th>
+                  <th style="width:60px;text-align:center">Quitar</th>
+                </tr>
+              </thead>
+              <tbody id="vol-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar">
+        <i class="ti ti-check"></i> Guardar
+      </button>
+    </div>
+  </div>
+</div>

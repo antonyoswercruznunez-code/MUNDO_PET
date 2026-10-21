@@ -1,0 +1,90 @@
+<div class="page-header lg-page-head">
+  <div class="page-header-left">
+    <h2><i class="ti ti-truck-delivery"></i> Logística y reparto</h2>
+    <p>Prepara pedidos delivery, asígnalos a una ruta y registra cada entrega.</p>
+  </div>
+  <div class="lg-head-actions">
+    <button id="lg-refrescar" class="btn btn-outline"><i class="ti ti-refresh"></i> Actualizar</button>
+    <button id="lg-nueva-ruta" class="btn btn-primary"><i class="ti ti-route"></i> Crear ruta</button>
+  </div>
+</div>
+
+<div class="lg-steps" aria-label="Flujo de reparto">
+  <div data-step="preparacion"><span>1</span><b>Preparación</b><small>El local alista el pedido</small></div>
+  <i class="ti ti-chevron-right"></i>
+  <div data-step="asignacion"><span>2</span><b>Asignación</b><small>Pedido listo entra a una ruta</small></div>
+  <i class="ti ti-chevron-right"></i>
+  <div data-step="carga"><span>3</span><b>Carga</b><small>Se confirma el camión</small></div>
+  <i class="ti ti-chevron-right"></i>
+  <div data-step="ruta"><span>4</span><b>En ruta</b><small>Seguimiento de paradas</small></div>
+  <i class="ti ti-chevron-right"></i>
+  <div data-step="entrega"><span>5</span><b>Entrega</b><small>Evidencia o incidencia</small></div>
+</div>
+
+<div class="lg-tabs" role="tablist">
+  <button class="active" data-lg-tab="pedidos"><i class="ti ti-package"></i> Pedidos delivery <span id="lg-ready-count" class="lg-tab-count">0</span></button>
+  <button data-lg-tab="rutas"><i class="ti ti-route"></i> Rutas</button>
+  <button data-lg-tab="resumen"><i class="ti ti-chart-bar"></i> Resumen</button>
+  <button data-lg-tab="repartidores"><i class="ti ti-users"></i> Repartidores</button>
+  <button data-lg-tab="vehiculos"><i class="ti ti-truck"></i> Camiones</button>
+</div>
+
+<section id="lg-tab-pedidos" class="lg-panel">
+  <div class="lg-toolbar card">
+    <div>
+      <label>Sucursal</label>
+      <select id="lg-pedidos-sucursal" class="form-control"><option value="">Todas</option></select>
+    </div>
+    <div>
+      <label>Etapa</label>
+      <select id="lg-pedidos-estado" class="form-control">
+        <option value="">Todas</option><option value="pendiente">Pendiente de preparación</option>
+        <option value="preparando">Preparando</option><option value="listo">Listo para ruta</option>
+      </select>
+    </div>
+    <div class="lg-search"><label>Buscar</label><input id="lg-pedidos-buscar" class="form-control" placeholder="Pedido, cliente o dirección"></div>
+    <button id="lg-pedidos-filtrar" class="btn btn-primary"><i class="ti ti-search"></i> Aplicar</button>
+  </div>
+  <div id="lg-pedido-kpis" class="lg-mini-kpis"></div>
+  <div class="card lg-table-card">
+    <div class="table-responsive">
+      <table class="table lg-table">
+        <thead><tr><th>Pedido</th><th>Cliente y contacto</th><th>Sucursal</th><th>Dirección</th><th>Unidades</th><th>Etapa</th><th>Acción siguiente</th></tr></thead>
+        <tbody id="lg-pedidos-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="lg-tab-rutas" class="lg-panel" hidden>
+  <div class="lg-toolbar card">
+    <div><label>Desde</label><input id="lg-desde" type="date" class="form-control"></div>
+    <div><label>Hasta</label><input id="lg-hasta" type="date" class="form-control"></div>
+    <div><label>Estado</label><select id="lg-estado" class="form-control"><option value="">Todos</option><option value="planificada">Planificada</option><option value="cargada">Cargada</option><option value="en_ruta">En ruta</option><option value="completada">Completada</option><option value="cancelada">Cancelada</option></select></div>
+    <button id="lg-filtrar" class="btn btn-primary"><i class="ti ti-filter"></i> Filtrar</button>
+  </div>
+  <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Ruta</th><th>Fecha</th><th>Repartidor</th><th>Camión</th><th>Paradas</th><th>Progreso</th><th>Estado</th><th></th></tr></thead><tbody id="lg-rutas-body"></tbody></table></div></div>
+</section>
+
+<section id="lg-tab-resumen" class="lg-panel" hidden>
+  <div id="lg-kpis" class="stats-grid"></div>
+  <div class="grid-2 lg-summary-grid">
+    <div class="card"><div class="card-header"><h3>Rutas por estado</h3></div><div id="lg-estados" class="card-body"></div></div>
+    <div class="card"><div class="card-header"><h3>Rendimiento de repartidores</h3></div><div id="lg-rendimiento" class="card-body"></div></div>
+  </div>
+</section>
+
+<section id="lg-tab-repartidores" class="lg-panel" hidden>
+  <div class="lg-section-head"><div><h3>Repartidores</h3><p>Conductores disponibles para asignación.</p></div><button id="lg-nuevo-repartidor" class="btn btn-primary"><i class="ti ti-user-plus"></i> Nuevo repartidor</button></div>
+  <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Repartidor</th><th>DNI</th><th>Contacto</th><th>Licencia</th><th>Vencimiento</th><th>Sucursal</th><th>Estado</th><th></th></tr></thead><tbody id="lg-repartidores-body"></tbody></table></div></div>
+</section>
+
+<section id="lg-tab-vehiculos" class="lg-panel" hidden>
+  <div class="lg-section-head"><div><h3>Camiones</h3><p>Unidades disponibles y documentación vigente.</p></div><button id="lg-nuevo-vehiculo" class="btn btn-primary"><i class="ti ti-truck"></i> Nuevo camión</button></div>
+  <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Placa</th><th>Vehículo</th><th>Capacidad</th><th>SOAT</th><th>Revisión</th><th>Sucursal</th><th>Estado</th><th></th></tr></thead><tbody id="lg-vehiculos-body"></tbody></table></div></div>
+</section>
+
+<div id="lg-modal-root"></div>
+<style>
+.lg-page-head{align-items:flex-start}.lg-head-actions{display:flex;gap:9px;flex-wrap:wrap}.lg-steps{display:grid;grid-template-columns:repeat(9,auto);gap:10px;align-items:center;background:linear-gradient(135deg,#f0fdf4,#f8fafc);border:1px solid #bbf7d0;border-radius:16px;padding:15px 18px;margin-bottom:16px;overflow:auto}.lg-steps>div{min-width:145px;display:grid;grid-template-columns:32px 1fr;column-gap:9px}.lg-steps span{grid-row:1/3;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#16a34a;color:#fff;font-weight:900}.lg-steps b{font-size:13px;color:#0f172a}.lg-steps small{font-size:10px;color:#64748b}.lg-steps>i{color:#94a3b8}.lg-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}.lg-tabs button{border:1px solid #dbe5df;background:#fff;color:#334155;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px}.lg-tabs button.active{background:#15803d;color:#fff;border-color:#15803d;box-shadow:0 8px 20px rgba(21,128,61,.18)}.lg-tab-count{min-width:22px;height:22px;border-radius:999px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:11px}.lg-panel{width:100%;max-width:none}.lg-panel[hidden]{display:none!important}.lg-toolbar{padding:15px;display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}.lg-toolbar>div{min-width:170px}.lg-toolbar .lg-search{flex:1;min-width:240px}.lg-toolbar label{display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:5px}.lg-mini-kpis{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px;margin-bottom:14px}.lg-mini-kpis article{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}.lg-mini-kpis b{font-size:24px;color:#0f172a}.lg-mini-kpis span{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:800}.lg-table-card{overflow:hidden;width:100%;max-width:none}.lg-table-card .table-responsive{width:100%}.lg-table{width:100%;min-width:900px}.lg-table{border-collapse:separate;border-spacing:0}.lg-table thead th{background:#f1f5f9;color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.04em;padding:12px}.lg-table tbody td{padding:13px 12px;vertical-align:middle;border-top:1px solid #edf2f7}.lg-table tbody tr:hover{background:#f7fff9}.lg-customer b{display:block;color:#0f172a}.lg-customer small{display:block;color:#64748b;margin-top:3px}.lg-next{min-width:150px}.lg-stage{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:900;text-transform:uppercase}.lg-stage.pendiente{background:#fff7ed;color:#c2410c}.lg-stage.preparando{background:#eff6ff;color:#1d4ed8}.lg-stage.listo{background:#ecfdf5;color:#047857}.lg-stage.en_ruta{background:#ecfeff;color:#0e7490}.lg-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.lg-section-head h3,.lg-section-head p{margin:0}.lg-section-head p{font-size:12px;color:#64748b;margin-top:3px}.lg-summary-grid{margin-top:15px;grid-template-columns:1fr;width:100%}.lg-summary-grid>.card{width:100%}.lg-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:1060;display:grid;place-items:center;padding:18px}.lg-modal{width:min(1040px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(15,23,42,.28);border-top:5px solid #16a34a}.lg-modal.small{width:min(720px,96vw)}.lg-modal-head{position:sticky;top:0;background:#fff;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid #e2e8f0}.lg-modal-head h3{margin:0;color:#0f172a}.lg-modal-close{border:0;background:#f1f5f9;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:20px}.lg-modal-body{padding:20px 22px}.lg-modal-foot{position:sticky;bottom:0;background:#fff;padding:14px 22px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:9px}.lg-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.lg-form-grid .full{grid-column:1/-1}.lg-evidence-box{border:1px dashed #86efac;background:#f0fdf4;border-radius:14px;padding:15px;text-align:center}.lg-evidence-box input{display:none}.lg-evidence-trigger{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:11px;background:#16a34a;color:#fff;font-weight:800;cursor:pointer}.lg-evidence-preview{display:none;margin-top:12px}.lg-evidence-preview img{max-height:230px;max-width:100%;border-radius:12px;object-fit:contain;border:1px solid #dbe7df}.lg-help{font-size:11px;color:#64748b;margin-top:7px}.lg-field label{display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:5px}.lg-route-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:15px}.lg-route-summary article{border:1px solid #e2e8f0;border-radius:12px;padding:11px;background:#f8fafc}.lg-route-summary small{display:block;text-transform:uppercase;font-size:9px;color:#64748b;font-weight:800}.lg-route-summary b{display:block;margin-top:4px;color:#0f172a}.lg-select-card{display:grid;grid-template-columns:28px 115px 1fr 125px;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer}.lg-select-card:hover,.lg-select-card:has(input:checked){border-color:#16a34a;background:#f0fdf4}.lg-empty{padding:45px;text-align:center;color:#64748b}.lg-empty i{font-size:44px;color:#cbd5e1}.lg-progress{height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden;min-width:100px}.lg-progress span{display:block;height:100%;background:#16a34a}.lg-actions{display:flex;gap:6px;flex-wrap:wrap}@media(max-width:760px){.lg-steps{grid-template-columns:1fr}.lg-steps>i{display:none}.lg-mini-kpis{grid-template-columns:1fr}.lg-form-grid{grid-template-columns:1fr}.lg-form-grid .full{grid-column:auto}.lg-select-card{grid-template-columns:28px 1fr}.lg-select-card>*:nth-child(n+3){grid-column:2}}
+</style>

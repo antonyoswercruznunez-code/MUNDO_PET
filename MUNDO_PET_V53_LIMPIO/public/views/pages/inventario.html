@@ -1,0 +1,258 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-box"></i> Inventario</h2>
+    <p>Control de stock y movimientos</p>
+  </div>
+  <div class="page-header-right">
+    <button class="btn btn-primary" id="btn-transferencias" style="display:none">
+      <i class="ti ti-arrows-transfer-up"></i> Transferencias
+    </button>
+  </div>
+</div>
+
+<div class="stats-grid" id="stats-inv"></div>
+
+<!-- Pestañas por sucursal (las llena el JS, solo admin global) -->
+<div id="inv-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--card-border)"></div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite" style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select class="form-control" id="fil-estado"
+              style="width:140px;padding:5px 8px;font-size:12px">
+        <option value="">Todo el stock</option>
+        <option value="critico">Stock crítico</option>
+        <option value="optimo">Stock óptimo</option>
+      </select>
+      <div class="search-box">
+        <i class="ti ti-search"></i>
+        <input type="text" id="inp-buscar" placeholder="Buscar producto...">
+      </div>
+    </div>
+  </div>
+
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Sucursal</th>
+          <th>Stock Actual</th>
+          <th>Stock Mínimo</th>
+          <th>Estado</th>
+          <th>Valor Stock</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-inv">
+        <tr><td colspan="7">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL MOVIMIENTO -->
+<div class="modal-overlay" id="modal-mov">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-transfer"></i>
+        <span id="mov-titulo">Movimiento de Stock</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-mov">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mov-producto-id">
+      <div style="background:var(--input-bg);border:1px solid var(--card-border);
+                  border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--texto-muted)">Producto</div>
+        <div style="font-weight:600;color:#fff;font-size:14px"
+             id="mov-producto-nombre">—</div>
+        <div style="display:flex;gap:16px;margin-top:6px">
+          <div>
+            <span style="font-size:11px;color:var(--texto-muted)">Stock actual</span>
+            <div style="font-weight:700;font-size:16px;color:var(--success)"
+                 id="mov-stock-actual">0</div>
+          </div>
+          <div>
+            <span style="font-size:11px;color:var(--texto-muted)">Stock mínimo</span>
+            <div style="font-weight:700;font-size:16px;color:var(--warning)"
+                 id="mov-stock-minimo">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de movimiento *</label>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success" id="btn-tipo-entrada"
+                  onclick="_setTipoMov('entrada')"
+                  style="flex:1;justify-content:center">
+            <i class="ti ti-arrow-up"></i> Entrada
+          </button>
+          <button class="btn btn-outline" id="btn-tipo-salida"
+                  onclick="_setTipoMov('salida')"
+                  style="flex:1;justify-content:center">
+            <i class="ti ti-arrow-down"></i> Salida
+          </button>
+        </div>
+        <input type="hidden" id="mov-tipo" value="entrada">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cantidad *</label>
+          <input type="number" class="form-control" id="mov-cantidad"
+                 placeholder="0" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Referencia</label>
+          <input type="text" class="form-control" id="mov-referencia"
+                 placeholder="Ej: B001-000123">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Motivo *</label>
+        <input type="text" class="form-control" id="mov-motivo"
+               placeholder="Ej: Compra de mercadería, devolución cliente...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observación</label>
+        <textarea class="form-control" id="mov-observacion"
+                  rows="2"
+                  placeholder="Observación adicional (opcional)"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar-mov">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-mov">
+        <i class="ti ti-check"></i> Registrar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIAL -->
+<div class="modal-overlay" id="modal-hist">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-history"></i>
+        <span id="hist-titulo">Historial de Movimientos</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-hist">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div id="hist-contenido" style="padding:20px">
+        <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJUSTE -->
+<div class="modal-overlay" id="modal-ajuste">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-adjustments"></i>
+        <span>Ajuste Manual de Stock</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-ajuste">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ajuste-producto-id">
+      <div style="background:var(--input-bg);border:1px solid var(--card-border);
+                  border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--texto-muted)">Producto</div>
+        <div style="font-weight:600;color:#fff" id="ajuste-nombre">—</div>
+        <div style="margin-top:4px">
+          <span style="font-size:12px;color:var(--texto-muted)">Stock actual: </span>
+          <span style="font-weight:700;color:var(--success)"
+                id="ajuste-stock-actual">0</span>
+        </div>
+      </div>
+      <div class="alert alert-warning">
+        <i class="ti ti-alert-triangle"></i>
+        El ajuste manual sobreescribe el stock directamente.
+        Úsalo solo para correcciones de inventario físico.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nuevo stock *</label>
+        <input type="number" class="form-control" id="ajuste-stock"
+               placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">N° Referencia</label>
+        <input type="text" class="form-control" id="ajuste-referencia"
+               placeholder="Ej: Conteo físico 2025-01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Motivo *</label>
+        <textarea class="form-control" id="ajuste-motivo" rows="2"
+                  placeholder="Describe el motivo del ajuste"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar-ajuste">Cancelar</button>
+      <button class="btn btn-warning" id="btn-guardar-ajuste" style="color:#000">
+        <i class="ti ti-adjustments"></i> Aplicar Ajuste
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRANSFERENCIAS ENTRE SUCURSALES -->
+<div class="modal-overlay" id="modal-transferencias">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-arrows-transfer-up"></i> Transferencias entre sucursales</div>
+      <button class="modal-close" id="btn-cerrar-transferencias"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="card" style="margin-bottom:16px">
+        <h4 style="margin-bottom:12px">Enviar producto</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Producto de origen *</label>
+            <select class="form-control" id="tr-origen"><option value="">Seleccionar...</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sucursal destino *</label>
+            <select class="form-control" id="tr-destino"><option value="">Selecciona primero el origen</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Cantidad *</label><input class="form-control" id="tr-cantidad" type="number" min="1" step="1"></div>
+          <div class="form-group"><label class="form-label">Motivo *</label><input class="form-control" id="tr-motivo" maxlength="300" placeholder="Ej.: abastecimiento temporal"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-enviar-transferencia"><i class="ti ti-send"></i> Registrar salida</button>
+        <small style="display:block;margin-top:8px;color:var(--texto-muted)">Solo el administrador global puede transferir. Si el producto no existe en la sucursal destino, se crea automáticamente como transferido y queda bloqueado para venta hasta su habilitación.</small>
+      </div>
+      <div class="tabla-container">
+        <table class="tabla">
+          <thead><tr><th>Código</th><th>Origen</th><th>Destino</th><th>Detalle</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <tbody id="tr-tbody"><tr><td colspan="7"><div class="loading-center"><div class="spinner"></div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

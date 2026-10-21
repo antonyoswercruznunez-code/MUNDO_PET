@@ -1,0 +1,200 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-users-group"></i> Gestión de Clientes</h2>
+    <p>Administra los clientes del sistema</p>
+  </div>
+  <button class="btn btn-primary" id="btn-nuevo-cliente">
+    <i class="ti ti-plus"></i> Nuevo Cliente
+  </button>
+</div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite"
+              style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+    <div class="search-box">
+      <i class="ti ti-search"></i>
+      <input type="text" id="inp-buscar" placeholder="Buscar cliente...">
+    </div>
+  </div>
+
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Nombre / Razón Social</th>
+          <th>Teléfono</th>
+          <th>Dirección</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-clientes">
+        <tr><td colspan="6">
+          <div class="loading-center">
+            <div class="spinner spinner-lg"></div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-user-plus"></i>
+        <span id="modal-titulo">Nuevo Cliente</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-modal">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <div id="zona-busqueda" style="background:var(--input-bg);
+           border:1px solid var(--card-border);border-radius:10px;
+           padding:16px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:600;color:var(--texto-muted);
+                    text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">
+          <i class="ti ti-search" style="color:var(--rojo)"></i>
+          Buscar por DNI o RUC
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="position:relative;flex:1">
+            <input type="text" class="form-control" id="inp-doc-buscar"
+                   placeholder="8 dígitos = DNI · 11 dígitos = RUC"
+                   maxlength="11" style="width:100%;padding-right:38px">
+            <button id="btn-limpiar-doc" title="Borrar documento"
+                    style="position:absolute;right:8px;top:50%;
+                           transform:translateY(-50%);display:none;
+                           background:var(--rojo);border:none;color:#fff;
+                           width:22px;height:22px;border-radius:50%;cursor:pointer;
+                           align-items:center;justify-content:center;font-size:12px">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
+          <button class="btn btn-primary" id="btn-buscar-doc"
+                  style="white-space:nowrap">
+            <i class="ti ti-search"></i> Buscar
+          </button>
+        </div>
+        <div id="api-resultado" style="margin-top:8px;font-size:12px"></div>
+      </div>
+
+      <input type="hidden" id="cli-id">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tipo Doc.</label>
+          <select class="form-control" id="cli-tipo-doc"
+                  style="opacity:.7;cursor:not-allowed" disabled>
+            <option value="dni">DNI</option>
+            <option value="ruc">RUC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Documento</label>
+          <input type="text" class="form-control" id="cli-numero-doc"
+                 readonly style="opacity:.7;cursor:not-allowed">
+        </div>
+      </div>
+
+      <div id="grupo-dni">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Apellido Paterno</label>
+            <input type="text" class="form-control" id="cli-ap-paterno"
+                   readonly style="opacity:.7;cursor:not-allowed">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apellido Materno</label>
+            <input type="text" class="form-control" id="cli-ap-materno"
+                   readonly style="opacity:.7;cursor:not-allowed">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nombres</label>
+            <input type="text" class="form-control" id="cli-nombre"
+                   readonly style="opacity:.7;cursor:not-allowed">
+          </div>
+        </div>
+      </div>
+
+      <div id="grupo-ruc" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Razón Social</label>
+          <input type="text" class="form-control" id="cli-razon-social"
+                 readonly style="opacity:.7;cursor:not-allowed">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Teléfono</label>
+          <input type="text" class="form-control" id="cli-telefono"
+                 placeholder="Solo números" maxlength="15">
+          <div class="campo-error" id="err-cli-telefono"
+               style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="cli-email"
+                 placeholder="correo@ejemplo.com">
+        </div>
+      </div>
+
+      <div class="form-group" style="display:none">
+        <label class="form-label">Dirección</label>
+        <input type="text" class="form-control" id="cli-direccion"
+               readonly style="opacity:.7;cursor:not-allowed">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="display:none">
+          <label class="form-label">Distrito</label>
+          <input type="text" class="form-control" id="cli-distrito"
+                 readonly style="opacity:.7;cursor:not-allowed">
+        </div>
+        <div class="form-group" style="display:none">
+          <label class="form-label">Provincia</label>
+          <input type="text" class="form-control" id="cli-provincia"
+                 readonly style="opacity:.7;cursor:not-allowed">
+        </div>
+        <div class="form-group" style="display:none">
+          <label class="form-label">Departamento</label>
+          <input type="text" class="form-control" id="cli-departamento"
+                 readonly style="opacity:.7;cursor:not-allowed">
+        </div>
+      </div>
+
+      <div class="form-group" id="grupo-estado" style="display:none">
+        <label class="form-label">Estado</label>
+        <select class="form-control" id="cli-activo">
+          <option value="1">Activo</option>
+          <option value="0">Inactivo</option>
+        </select>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar">
+        <i class="ti ti-check"></i> Guardar
+      </button>
+    </div>
+  </div>
+</div>

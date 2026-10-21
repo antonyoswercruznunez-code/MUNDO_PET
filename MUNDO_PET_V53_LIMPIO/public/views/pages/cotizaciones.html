@@ -1,0 +1,255 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-file-text"></i> Cotizaciones</h2>
+    <p>Proformas y conversión a venta</p>
+  </div>
+  <button class="btn btn-primary" id="btn-nueva-cotizacion">
+    <i class="ti ti-plus"></i> Nueva Cotización
+  </button>
+</div>
+
+<!-- Filtros -->
+<div class="card" style="padding:14px 20px;margin-bottom:16px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;color:var(--texto-muted);white-space:nowrap">Desde</label>
+      <input type="date" class="form-control" id="fil-desde" style="width:150px;padding:5px 8px">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;color:var(--texto-muted);white-space:nowrap">Hasta</label>
+      <input type="date" class="form-control" id="fil-hasta" style="width:150px;padding:5px 8px">
+    </div>
+    <select class="form-control" id="fil-estado" style="width:160px;padding:5px 8px;font-size:12px">
+      <option value="">Todos los estados</option>
+      <option value="vigente">Vigentes</option>
+      <option value="vencida">Vencidas</option>
+    </select>
+    <div class="search-box">
+      <i class="ti ti-search"></i>
+      <input type="text" id="inp-buscar" placeholder="Cliente o documento...">
+    </div>
+    <button class="btn btn-outline btn-sm" id="btn-filtrar">
+      <i class="ti ti-filter"></i> Filtrar
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite" style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+  </div>
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Cliente</th>
+          <th>Ítems</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th>Vence</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-cotizaciones">
+        <tr><td colspan="8">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA COTIZACIÓN -->
+<div class="modal-overlay" id="modal-cotizacion">
+  <div class="modal" style="max-width:1020px;width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-file-text"></i> <span id="ct-modal-titulo">Nueva Cotización</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-cotizacion"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px;max-height:88vh;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Cliente -->
+          <div class="ct-card">
+            <div class="ct-card-title">
+              <i class="ti ti-user" style="color:var(--rojo)"></i> Cliente
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input type="text" class="form-control" id="ct-doc-buscar"
+                     placeholder="DNI (8 dígitos) o RUC (11 dígitos)"
+                     maxlength="11" inputmode="numeric" style="flex:1">
+              <button class="btn btn-primary btn-sm" id="btn-ct-buscar-cli" style="white-space:nowrap">
+                <i class="ti ti-search"></i>
+              </button>
+            </div>
+            <div id="ct-cli-resultado" style="font-size:12px;margin-bottom:8px"></div>
+            <div id="ct-cli-info" style="display:none;background:var(--input-bg);
+                 border-radius:8px;padding:10px 12px;border:1px solid var(--card-border)">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                  <div style="font-weight:600;color:var(--texto-fuerte);font-size:14px" id="ct-cli-nombre-label">—</div>
+                  <div style="font-size:11px;color:var(--texto-muted)" id="ct-cli-doc-label">—</div>
+                  <div style="font-size:11px;color:var(--texto-muted)" id="ct-cli-telefono-label"></div>
+                </div>
+                <button class="btn btn-ghost btn-xs" id="btn-ct-limpiar-cli" style="color:var(--texto-muted)">
+                  <i class="ti ti-x"></i>
+                </button>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--texto-muted);margin-top:8px">
+              <i class="ti ti-info-circle"></i>
+              Sin cliente se registra como "Cliente General".
+            </div>
+            <input type="hidden" id="ct-cli-id">
+            <input type="hidden" id="ct-cli-tipo-doc">
+          </div>
+
+          <!-- Productos -->
+          <div class="ct-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="ct-card-title">
+                <i class="ti ti-package" style="color:var(--rojo)"></i> Productos
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-ct-agregar-prod">
+                <i class="ti ti-plus"></i> Agregar
+              </button>
+            </div>
+            <div id="ct-items-empty" style="text-align:center;padding:20px 0;color:var(--texto-muted)">
+              <i class="ti ti-package" style="font-size:26px;opacity:.3;display:block;margin-bottom:6px"></i>
+              <span style="font-size:13px">Agrega productos a la cotización</span>
+            </div>
+            <div id="ct-items-wrap" style="display:none">
+              <div class="tabla-container" style="margin:0">
+                <table class="tabla" style="font-size:13px">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th style="width:80px;text-align:right">P. Unit</th>
+                      <th style="width:60px;text-align:center">Cant.</th>
+                      <th style="width:80px;text-align:right">Subtotal</th>
+                      <th style="width:36px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="ct-items-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <!-- Vencimiento -->
+          <div class="ct-card">
+            <div class="ct-card-title" style="margin-bottom:8px">
+              <i class="ti ti-calendar-event" style="color:var(--rojo)"></i> Validez
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <button type="button" class="ct-dias-btn" data-dias="7">7 días</button>
+              <button type="button" class="ct-dias-btn" data-dias="15">15 días</button>
+              <button type="button" class="ct-dias-btn" data-dias="30">30 días</button>
+            </div>
+            <label style="font-size:11px;color:var(--texto-muted);display:block;margin-bottom:4px">Vence el</label>
+            <input type="date" class="form-control" id="ct-vence" style="width:100%;padding:6px 8px">
+          </div>
+
+          <!-- Totales -->
+          <div class="ct-card" style="background:var(--input-bg)">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--texto-muted)">Subtotal</span>
+                <span id="ct-subtotal-label">S/ 0.00</span>
+              </div>
+              <div style="border-top:1px solid var(--card-border);padding-top:8px;display:flex;justify-content:space-between">
+                <span style="font-weight:700;font-size:15px">TOTAL</span>
+                <span id="ct-total-label" style="font-weight:700;font-size:18px;color:var(--success)">S/ 0.00</span>
+              </div>
+              <div style="font-size:11px;color:var(--texto-muted);margin-top:2px">
+                <i class="ti ti-info-circle"></i> El precio de cada producto es editable en la tabla.
+              </div>
+            </div>
+          </div>
+
+          <!-- Observación -->
+          <div class="ct-card">
+            <div class="ct-card-title" style="margin-bottom:6px">
+              <i class="ti ti-notes" style="color:var(--rojo)"></i> Observación
+            </div>
+            <textarea class="form-control" id="ct-observacion" rows="2"
+                      placeholder="Opcional..." style="font-size:13px"></textarea>
+          </div>
+
+          <button class="btn btn-primary" id="btn-ct-registrar"
+                  style="padding:13px;font-size:14px;font-weight:600;border-radius:10px">
+            <i class="ti ti-check"></i> Guardar Cotización
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUSCAR PRODUCTO -->
+<div class="modal-overlay" id="modal-ct-prod-buscar">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-package"></i> Seleccionar Producto</div>
+      <button class="modal-close" id="btn-cerrar-ct-prod-buscar"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Pestañas de sucursal (solo admin global; las llena el JS) -->
+      <div id="ct-prod-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:10px;border-bottom:1px solid var(--card-border)"></div>
+      <div class="search-box" style="width:100%;margin-bottom:12px">
+        <i class="ti ti-search"></i>
+        <input type="text" id="ct-prod-buscar-inp" placeholder="Buscar por nombre..." style="width:100%">
+      </div>
+      <div id="ct-prod-lista" style="max-height:420px;overflow-y:auto;display:grid;
+           grid-template-columns:1fr 1fr;gap:8px">
+        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--texto-muted)">
+          Cargando productos...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRESENTACIONES -->
+<div class="modal-overlay" id="modal-ct-presentaciones">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-layers"></i>
+        <span id="ct-pres-modal-titulo">Seleccionar presentación</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-ct-presentaciones"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="ct-pres-modal-body" style="padding:16px"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-ct-detalle">
+  <div class="modal" style="max-width:620px;width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-file-text"></i> <span id="ct-detalle-titulo">Cotización</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-ct-detalle"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="ct-detalle-body" style="padding:20px;max-height:80vh;overflow-y:auto"></div>
+  </div>
+</div>

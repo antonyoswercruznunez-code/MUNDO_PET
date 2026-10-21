@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Sesión · Mundo Pet</title>
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root{
+      --verde:#16A34A; --verde-d:#15803D; --celeste:#0EA5E9;
+      --texto:#1E293B; --muted:#64748B; --linea:#E2E8F0; --bg:#F1F5F9;
+    }
+    body {
+      font-family: 'Inter','Segoe UI',sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; position: relative; overflow: hidden;
+    }
+    body::before, body::after{
+      content:''; position:absolute; border-radius:50%; filter: blur(4px); z-index:0;
+      background: radial-gradient(circle at 30% 30%, rgba(14,165,233,.16), rgba(22,163,74,.08));
+    }
+    body::before{ width:420px; height:420px; top:-150px; left:-130px; }
+    body::after { width:360px; height:360px; bottom:-130px; right:-110px;
+      background: radial-gradient(circle at 30% 30%, rgba(22,163,74,.14), rgba(14,165,233,.07)); }
+
+    .login-card{
+      position:relative; z-index:1;
+      background:#fff; border:1px solid var(--linea);
+      border-radius:18px; padding:40px 34px;
+      width:100%; max-width:410px;
+      box-shadow: 0 24px 60px rgba(15,23,42,.16);
+    }
+
+    .login-logo{ text-align:center; margin-bottom:18px; }
+    .login-logo-icon{
+      width:120px; height:120px; margin:0 auto;
+      background: linear-gradient(135deg, var(--verde), var(--celeste));
+      border-radius:24px; display:inline-flex; align-items:center; justify-content:center;
+      font-size:58px; color:#fff; box-shadow:0 10px 26px rgba(22,163,74,.35);
+    }
+    .login-logo h1{ font-size:12px; color:var(--muted); margin-top:10px; font-weight:500; letter-spacing:.3px; }
+
+    .login-title{ text-align:center; margin-bottom:24px; }
+    .login-title h2{ font-size:22px; font-weight:800; color:var(--texto); margin-bottom:4px; }
+    .login-title p{ font-size:13px; color:var(--muted); }
+
+    .form-group{ margin-bottom:16px; }
+    .form-label{
+      display:block; font-size:11px; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;
+    }
+    .input-wrap{ position:relative; }
+    .input-wrap i{
+      position:absolute; left:13px; top:50%; transform:translateY(-50%);
+      color:var(--celeste); font-size:17px;
+    }
+    .form-control{
+      width:100%; background:#fff; border:1.5px solid var(--linea);
+      border-radius:10px; color:var(--texto);
+      padding:11px 12px 11px 40px; font-size:14px; outline:none;
+      transition:border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus{ border-color:var(--verde); box-shadow:0 0 0 3px rgba(22,163,74,.13); }
+    .form-control::placeholder{ color:#94A3B8; }
+
+    #msg-error{
+      background:#FEF2F2; border:1px solid #FECACA; color:#B91C1C;
+      border-radius:10px; padding:10px 14px; font-size:13px;
+      margin-bottom:16px; display:none; align-items:center; gap:8px;
+    }
+
+    .btn-login{
+      width:100%; padding:13px;
+      background: linear-gradient(135deg, var(--verde), var(--verde-d));
+      color:#fff; border:none; border-radius:10px;
+      font-size:14.5px; font-weight:700; cursor:pointer;
+      transition:filter .2s, transform .05s;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      box-shadow:0 8px 20px rgba(22,163,74,.30); margin-top:4px;
+    }
+    .btn-login:hover:not(:disabled){ filter:brightness(1.06); }
+    .btn-login:active:not(:disabled){ transform:translateY(1px); }
+    .btn-login:disabled{ opacity:.6; cursor:not-allowed; }
+
+    .login-footer{ text-align:center; margin-top:22px; font-size:11px; color:#94A3B8; }
+
+    .spinner-sm{
+      display:inline-block; width:16px; height:16px;
+      border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+      border-radius:50%; animation:spin .6s linear infinite;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+
+
+    .recover-overlay{position:fixed;inset:0;z-index:20;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+    .recover-overlay.show{display:flex}
+    .recover-modal{width:100%;max-width:460px;background:#fff;border:1px solid var(--linea);border-radius:18px;box-shadow:0 28px 80px rgba(15,23,42,.28);padding:26px;position:relative}
+    .recover-modal h3{font-size:21px;color:var(--texto);margin-bottom:6px}
+    .recover-modal p{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.55}
+    .recover-close{position:absolute;right:14px;top:14px;width:36px;height:36px;border:0;border-radius:10px;background:#f1f5f9;color:#475569;font-size:20px;cursor:pointer}
+    .recover-steps{display:flex;gap:7px;margin:4px 0 18px}
+    .recover-step{flex:1;text-align:center;font-size:11px;font-weight:800;padding:7px;border-radius:999px;background:#e2e8f0;color:#64748b}
+    .recover-step.active{background:#dcfce7;color:#15803d}
+
+    @media (max-width: 480px){
+      .login-card{ padding:32px 22px; border-radius:14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+
+  <div class="login-logo">
+    <div id="logo-contenedor">
+      <div class="login-logo-icon">
+        <i class="ti ti-droplet"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-title">
+    <h2>Iniciar sesión</h2>
+    <p>Ingresa tus credenciales para continuar</p>
+  </div>
+
+  <div id="msg-error">
+    <i class="ti ti-alert-circle"></i>
+    <span id="msg-error-texto"></span>
+  </div>
+
+<form id="login-form">
+  <div class="form-group">
+    <label class="form-label">Usuario o correo</label>
+    <div class="input-wrap">
+      <i class="ti ti-user"></i>
+      <input type="text" class="form-control" id="inp-usuario"
+             placeholder="Ingresa tu usuario o correo" autocomplete="username">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Contraseña</label>
+    <div class="input-wrap">
+      <i class="ti ti-lock"></i>
+      <input type="password" class="form-control" id="inp-password"
+             placeholder="••••••••" autocomplete="current-password">
+    </div>
+  </div>
+
+  <button class="btn-login" id="btn-login" type="submit">
+    <i class="ti ti-login"></i> Ingresar
+  </button>
+</form>
+  <button type="button" id="btn-forgot" style="width:100%;border:0;background:transparent;color:#0284c7;font-weight:700;padding:14px 0 2px;cursor:pointer">¿Olvidaste tu contraseña?</button>
+
+  <div class="login-footer">© 2026 Mundo Pet · Sistema Administrativo</div>
+</div>
+
+<div id="recover-modal" class="recover-overlay" role="dialog" aria-modal="true" aria-labelledby="recover-title">
+  <form id="recover-form" class="recover-modal">
+    <button id="recover-close" class="recover-close" type="button" aria-label="Cerrar"><i class="ti ti-x"></i></button>
+    <h3 id="recover-title">Recuperar acceso</h3>
+    <p>Primero enviaremos un código de seis dígitos al correo registrado. Después podrás establecer una nueva contraseña.</p>
+    <div class="recover-steps"><span id="recover-step-label1" class="recover-step active">1. Identificar cuenta</span><span id="recover-step-label2" class="recover-step">2. Cambiar contraseña</span></div>
+    <div id="recover-step1">
+      <label class="form-label" for="recover-id">Usuario o correo</label>
+      <input id="recover-id" class="form-control" style="padding-left:12px;margin-bottom:12px" autocomplete="username" placeholder="Usuario o correo">
+      <button id="recover-send" class="btn-login" type="button">Enviar código</button>
+    </div>
+    <div id="recover-step2" style="display:none">
+      <label class="form-label" for="recover-code">Código recibido</label>
+      <input id="recover-code" class="form-control" style="padding-left:12px;margin-bottom:10px" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos">
+      <label class="form-label" for="recover-password">Nueva contraseña</label>
+      <input id="recover-password" type="password" class="form-control" style="padding-left:12px;margin-bottom:12px" autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras y números">
+      <button id="recover-reset" class="btn-login" type="submit">Cambiar contraseña</button>
+      <button id="recover-back" type="button" style="width:100%;border:0;background:transparent;color:#0284c7;font-weight:700;padding:13px 0 0;cursor:pointer">Usar otro usuario o correo</button>
+    </div>
+    <div id="recover-msg" aria-live="polite" style="font-size:12px;margin-top:12px;color:var(--muted)"></div>
+  </form>
+</div>
+
+
+<script>
+// Cargar logo dinámico (más grande)
+(async () => {
+  try {
+    const res  = await fetch('/api/publico/logo');
+    const data = await res.json();
+    if (data.ok && data.ruta) {
+      document.getElementById('logo-contenedor').innerHTML = `
+        <img src="${data.ruta}"
+             style="width:130px;height:130px;object-fit:contain;border-radius:24px;
+                    box-shadow:0 10px 26px rgba(15,23,42,.18)">`;
+    }
+  } catch(e) {}
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn      = document.getElementById('btn-login');
+  const inpUser  = document.getElementById('inp-usuario');
+  const inpPass  = document.getElementById('inp-password');
+  const msgError = document.getElementById('msg-error');
+  const msgTxt   = document.getElementById('msg-error-texto');
+  const recoverModal = document.getElementById('recover-modal');
+  const recoverMsg = document.getElementById('recover-msg');
+
+  const resetRecovery = ({ keepIdentifier = false } = {}) => {
+    document.getElementById('recover-step1').style.display = 'block';
+    document.getElementById('recover-step2').style.display = 'none';
+    document.getElementById('recover-step-label1').classList.add('active');
+    document.getElementById('recover-step-label2').classList.remove('active');
+    if (!keepIdentifier) document.getElementById('recover-id').value = '';
+    document.getElementById('recover-code').value = '';
+    document.getElementById('recover-password').value = '';
+    recoverMsg.textContent = '';
+    recoverMsg.style.color = 'var(--muted)';
+  };
+  const openRecovery = () => {
+    resetRecovery();
+    recoverModal.classList.add('show');
+    setTimeout(() => document.getElementById('recover-id').focus(), 30);
+  };
+  const closeRecovery = () => {
+    recoverModal.classList.remove('show');
+    resetRecovery();
+  };
+  document.getElementById('btn-forgot').addEventListener('click', openRecovery);
+  document.getElementById('recover-close').addEventListener('click', closeRecovery);
+  document.getElementById('recover-back').addEventListener('click', () => { resetRecovery(); document.getElementById('recover-id').focus(); });
+  recoverModal.addEventListener('click', e => { if (e.target === recoverModal) closeRecovery(); });
+  document.getElementById('recover-send').addEventListener('click', async () => {
+    const identificador = document.getElementById('recover-id').value.trim();
+    const sendBtn = document.getElementById('recover-send');
+    if (!identificador) { recoverMsg.textContent='Ingresa tu usuario o correo'; recoverMsg.style.color='#dc2626'; return; }
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner-sm"></span> Enviando...';
+    recoverMsg.textContent = '';
+    try {
+      const r = await fetch('/api/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({identificador})});
+      const d = await r.json().catch(()=>({ok:false,msg:'Respuesta inválida del servidor'}));
+      if (r.status === 429) {
+        const retry = Number(r.headers.get('retry-after') || 0);
+        recoverMsg.textContent = retry ? `Demasiadas solicitudes. Intenta nuevamente en ${retry} segundos.` : (d.msg || 'Espera unos minutos antes de volver a intentarlo.');
+        recoverMsg.style.color='#dc2626';
+        return;
+      }
+      recoverMsg.textContent=d.msg||'No se pudo enviar el código';
+      recoverMsg.style.color=d.ok && d.sent !== false ? '#15803d' : '#dc2626';
+      const sent = d.ok && d.sent !== false;
+      document.getElementById('recover-step1').style.display = sent ? 'none' : 'block';
+      document.getElementById('recover-step2').style.display = sent ? 'block' : 'none';
+      document.getElementById('recover-step-label1').classList.toggle('active', !sent);
+      document.getElementById('recover-step-label2').classList.toggle('active', sent);
+      if (sent) setTimeout(() => document.getElementById('recover-code').focus(), 30);
+    } catch (error) {
+      recoverMsg.textContent='No se pudo conectar con el servidor.';
+      recoverMsg.style.color='#dc2626';
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Enviar código';
+    }
+  });
+  document.getElementById('recover-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const identificador = document.getElementById('recover-id').value.trim();
+    const codigo = document.getElementById('recover-code').value.replace(/\D/g, '').slice(0, 6);
+    const nueva_password = document.getElementById('recover-password').value;
+    const resetBtn = document.getElementById('recover-reset');
+    if (!/^\d{6}$/.test(codigo)) { recoverMsg.textContent='Ingresa el código completo de 6 dígitos.'; recoverMsg.style.color='#dc2626'; return; }
+    resetBtn.disabled = true; resetBtn.textContent = 'Verificando...';
+    try {
+      const r=await fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({identificador,codigo,nueva_password})});
+      const d=await r.json().catch(()=>({ok:false,msg:'Respuesta inválida del servidor'}));
+      recoverMsg.textContent=d.msg||'No se pudo actualizar'; recoverMsg.style.color=d.ok?'#15803d':'#dc2626';
+      if(d.ok){
+        recoverModal.classList.remove('show');
+        resetRecovery();
+        inpUser.value=d.username||identificador; inpPass.value=''; inpPass.focus();
+      }
+    } catch (_) {
+      recoverMsg.textContent='No se pudo conectar con el servidor.'; recoverMsg.style.color='#dc2626';
+    } finally {
+      resetBtn.disabled = false; resetBtn.textContent = 'Cambiar contraseña';
+    }
+  });
+
+  document.getElementById('login-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const username = inpUser.value.trim();
+    const password = inpPass.value;
+    msgError.style.display = 'none';
+
+    if (!username || !password) {
+      msgTxt.textContent = 'Ingresa usuario y contraseña';
+      msgError.style.display = 'flex';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-sm"></span> Verificando...';
+
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        btn.innerHTML = '<i class="ti ti-check"></i> Redirigiendo...';
+        setTimeout(() => window.location.href = '/dashboard', 600);
+      } else {
+        msgTxt.textContent = data.msg || 'Credenciales incorrectas';
+        msgError.style.display = 'flex';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-login"></i> Ingresar';
+      }
+    } catch(e) {
+      msgTxt.textContent = 'Error de conexión';
+      msgError.style.display = 'flex';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar';
+    }
+  });
+});
+</script>
+</body>
+</html>

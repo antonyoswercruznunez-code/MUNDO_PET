@@ -1,0 +1,37 @@
+{
+  "name": "sistema-ventas-v9",
+  "version": "53.0.0",
+  "description": "Mundo Pet V53: dashboard avanzado, canales de venta, perfiles definidos, logística y Ecommerce final",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "check": "node scripts/check.js",
+    "preflight": "node scripts/preflight.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.2",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.18.0",
+    "helmet": "^8.2.0",
+    "multer": "^2.2.0",
+    "mysql2": "^3.11.0",
+    "nodemailer": "^9.0.3",
+    "pdfkit": "^0.19.1",
+    "qs": "^6.15.3",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "release": "53.0.0",
+  "engines": {
+    "node": ">=20 <25"
+  }
+}

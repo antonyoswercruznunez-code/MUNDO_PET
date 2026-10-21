@@ -1,0 +1,166 @@
+<div class="page-header">
+  <div class="page-header-left">
+    <h2><i class="ti ti-users"></i> Gestión de Usuarios</h2>
+    <p>Administra los usuarios del sistema</p>
+  </div>
+  <div id="slot-btn-nuevo-usuario"></div>
+</div>
+
+<!-- Pestañas por sucursal (las llena el JS, solo admin global) -->
+<div id="usr-tabs" class="suc-tabs" style="display:none;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--card-border)"></div>
+
+<div class="card">
+  <div class="tabla-toolbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:var(--texto-muted)">Mostrar</span>
+      <select class="form-control" id="sel-limite" style="width:70px;padding:5px 8px">
+        <option>10</option><option>25</option><option>50</option>
+      </select>
+      <span style="font-size:13px;color:var(--texto-muted)">registros</span>
+    </div>
+    <div class="search-box">
+      <i class="ti ti-search"></i>
+      <input type="text" id="inp-buscar" placeholder="Buscar usuario...">
+    </div>
+  </div>
+
+  <div class="tabla-container">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Email</th>
+          <th>Perfil</th>
+          <th>Sucursal</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-usuarios">
+        <tr><td colspan="6">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <div class="pagination-info" id="pag-info"></div>
+    <div class="pagination-btns" id="pag-btns"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="ti ti-user-plus"></i>
+        <span id="modal-titulo">Nuevo Usuario</span>
+      </div>
+      <button class="modal-close" id="btn-cerrar-modal">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="usr-id">
+
+      <div class="form-group">
+        <label class="form-label">Nombre completo *</label>
+        <input type="text" class="form-control" id="usr-nombre"
+               placeholder="Ingrese nombre" maxlength="60">
+        <div class="campo-error" id="err-nombre"
+             style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          <input type="text" class="form-control" id="usr-username"
+                 placeholder="Ej: camion1, juan" maxlength="30">
+          <div class="campo-error" id="err-username"
+               style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="usr-email"
+                 placeholder="correo@ejemplo.com (opcional)">
+          <div class="campo-error" id="err-email"
+               style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Perfil *</label>
+          <select class="form-control" id="usr-perfil">
+            <option value="">Selecciona perfil</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sucursal *</label>
+          <select class="form-control" id="usr-sucursal"></select>
+        </div>
+      </div>
+
+      <div id="grupo-pass-crear">
+        <div class="form-group">
+          <label class="form-label">Contraseña *</label>
+          <input type="password" class="form-control" id="usr-password"
+                 placeholder="Mínimo 6 caracteres">
+          <div class="campo-error" id="err-password"
+               style="display:none;font-size:11px;color:var(--danger);margin-top:4px"></div>
+        </div>
+      </div>
+
+      <div id="grupo-pass-editar" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Nueva contraseña
+            <span style="color:var(--texto-muted);font-weight:400;
+                         text-transform:none;letter-spacing:0">
+              (dejar vacío para no cambiar)
+            </span>
+          </label>
+          <input type="password" class="form-control" id="usr-nueva-pass"
+                 placeholder="Nueva contraseña (opcional)">
+        </div>
+      </div>
+
+      <div id="grupo-pin-cajero" style="display:none;margin-top:2px;padding:14px;border:1px solid var(--card-border);border-radius:10px;background:var(--input-bg)">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+          <i class="ti ti-key" style="color:var(--primary)"></i>
+          <span style="font-weight:700;font-size:13px;color:var(--texto-fuerte)">PIN de cajero</span>
+        </div>
+        <div id="pin-cajero-estado" style="display:none;margin:0 0 9px;font-size:12px;font-weight:700"></div>
+        <p id="pin-cajero-ayuda" style="margin:0 0 11px;font-size:12px;color:var(--texto-muted)">Todo usuario con perfil Vendedor debe tener un PIN de cajero. El PIN confirma al vendedor al aperturar una caja y nunca se muestra después de guardarlo.</p>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">PIN <span id="pin-cajero-requerido">*</span></label>
+            <input type="password" inputmode="numeric" autocomplete="new-password" class="form-control"
+                   id="usr-pin-cajero" placeholder="4 a 6 dígitos" maxlength="6">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Confirmar PIN <span id="pin-cajero-confirmar-requerido">*</span></label>
+            <input type="password" inputmode="numeric" autocomplete="new-password" class="form-control"
+                   id="usr-confirmar-pin-cajero" placeholder="Repite el PIN" maxlength="6">
+          </div>
+        </div>
+        <div class="campo-error" id="err-pin-cajero" style="display:none;font-size:11px;color:var(--danger);margin-top:8px"></div>
+      </div>
+
+      <div class="form-group" id="grupo-estado-usr" style="display:none">
+        <label class="form-label">Estado</label>
+        <select class="form-control" id="usr-estado">
+          <option value="0">Activo</option>
+          <option value="1">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar">
+        <i class="ti ti-check"></i> Guardar
+      </button>
+    </div>
+  </div>
+</div>

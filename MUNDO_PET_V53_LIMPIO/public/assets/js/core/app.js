@@ -287,6 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('topbar-avatar').textContent = (usuario.nombre || 'A')[0].toUpperCase();
   document.getElementById('topbar-nombre').textContent = usuario.nombre;
+  window.MPTracking?.init();
   document.getElementById('topbar-perfil').textContent = usuario.perfil_nombre;
 
   try {

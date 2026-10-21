@@ -27,6 +27,7 @@ const Comprobante = require('../controllers/ComprobanteController');
 const Recojo = require('../controllers/RecojoController');
 const Temporada = require('../controllers/TemporadaController');
 const Logistica = require('../controllers/LogisticaController');
+const Ubicacion = require('../controllers/UbicacionController');
 
 const loginLimiter = rateLimit({ windowMs: 15*60*1000, limit: 12, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos. Espera unos minutos.'} });
 const resetLimiter = rateLimit({ windowMs: 15*60*1000, limit: 6, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiadas solicitudes. Espera unos minutos.'} });
@@ -200,6 +201,9 @@ router.post('/logistica/rutas/:id/pedidos/:detalleId/evidencias', auth, requireP
 router.get('/logistica/evidencias/:evidenciaId', auth, requirePermission('logistica.ver'), Logistica.verEvidencia);
 router.delete('/logistica/evidencias/:evidenciaId', auth, requirePermission('logistica.gestionar'), Logistica.retirarEvidencia);
 router.get('/logistica/reporte', auth, requirePermission('reportes.ver'), Logistica.reporte);
+router.post('/logistica/ubicacion', auth, requirePermission('logistica.operar'), Ubicacion.registrar);
+router.get('/logistica/ubicaciones', auth, requirePermission('logistica.gestionar'), Ubicacion.enVivo);
+router.get('/logistica/ubicaciones/:usuarioId/recorrido', auth, requirePermission('logistica.gestionar'), Ubicacion.recorrido);
 
 // Cotizaciones
 router.get('/cotizaciones', auth, requirePermission('cotizaciones.ver'), Cotizacion.list);

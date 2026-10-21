@@ -1,7 +1,7 @@
 const { getDB } = require('../config/database');
 const { getTableColumns } = require('../helpers/dbSchema');
 
-// Nombre completo del cliente (razón social, o nombre + apellidos, o 'Cliente General')
+// Nombre completo del cliente - modificado por Antony
 const NOMBRE_CLIENTE_SQL = `
   COALESCE(
     NULLIF(TRIM(c.razon_social), ''),

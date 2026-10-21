@@ -6,7 +6,7 @@ function isAdminSession(req) {
 }
 
 async function hasPermission(req, slug) {
-  if (!req.session?.usuario) return false;
+  if (!req.session?.usuario || req.session.mfa_ok !== true) return false;
   if (isAdminSession(req)) return true;
   const permisos = Array.isArray(req.session.permisos) ? req.session.permisos : [];
   return permisos.includes(String(slug));

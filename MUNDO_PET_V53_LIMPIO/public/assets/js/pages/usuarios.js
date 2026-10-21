@@ -138,6 +138,14 @@ window.init_usuarios = async function () {
                 ${activo ? 'Activo' : 'Inactivo'}
               </span>
             </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                ${Number(u.doble_factor_activo) === 1
+                  ? '<span class="badge badge-success"><i class="ti ti-shield-check"></i> Configurado</span>'
+                  : '<span class="badge badge-warning"><i class="ti ti-shield-half"></i> Pendiente</span>'}
+                ${window._esAdmin && Number(u.doble_factor_activo) === 1 ? `<button class="btn btn-outline btn-xs" onclick="_resetAutenticador(${u.id})" title="Reiniciar autenticador"><i class="ti ti-refresh"></i></button>` : ''}
+              </div>
+            </td>
             <td>${acciones}</td>
           </tr>`;
       }).join('');
@@ -521,6 +529,24 @@ window.init_usuarios = async function () {
         background: '#1a1a2e', color: '#e0e0e0',
         confirmButtonColor: '#e53935'
       });
+    await cargar();
+  };
+
+  // Reiniciar autenticador (celular perdido o cambiado).
+  window._resetAutenticador = async function(id) {
+    const u = todos.find(x => x.id === id);
+    const conf = await Swal.fire({
+      icon: 'warning', title: 'Reiniciar autenticador',
+      html: `<b>${String(u?.nombre || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</b> tendrá que escanear un QR nuevo en su próximo ingreso y se cerrarán sus sesiones abiertas.`,
+      input: 'password', inputPlaceholder: 'Tu contraseña para confirmar',
+      showCancelButton: true, confirmButtonText: 'Reiniciar', cancelButtonText: 'Cancelar', confirmButtonColor: '#d97706',
+      inputValidator: v => v ? undefined : 'Escribe tu contraseña'
+    });
+    if (!conf.isConfirmed) return;
+    const res = await Http.patch(`/usuarios/${id}/2fa-reset`, { admin_password: conf.value });
+    if (!res?.ok) return Swal.fire({ icon: 'error', title: 'No se pudo reiniciar', text: res?.msg || '' });
+    await Swal.fire({ icon: 'success', title: 'Listo', text: res.msg, timer: 2600, showConfirmButton: false });
+    if (id === Number(window._usuario?.id)) return Http.post('/auth/logout').finally(() => { window.location.href = '/login'; });
     await cargar();
   };
 

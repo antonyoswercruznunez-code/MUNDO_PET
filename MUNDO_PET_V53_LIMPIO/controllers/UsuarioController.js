@@ -1,3 +1,5 @@
+const TwoFactor = require('../services/TwoFactorService');
+const Audit = require('../services/AuditService');
 const { wrap } = require('../helpers/response');
 const UsuarioModel = require('../models/UsuarioModel');
 const bcrypt = require('bcrypt');
@@ -253,6 +255,23 @@ const UsuarioController = {
     }
     await UsuarioModel.eliminar(id);
     res.json({ ok: true, msg: 'Usuario eliminado.' });
+  }),
+
+  // Reinicia el autenticador: en su próximo ingreso el usuario escanea un QR nuevo.
+  resetDobleFactor: wrap(async (req, res) => {
+    if (!soloAdmin(req, res)) return;
+    const id = +req.params.id;
+    const target = await usuarioEnAlcance(req, id);
+    if (target === null) return res.status(404).json({ ok:false, msg:'Usuario no encontrado' });
+    if (target === false) return res.status(403).json({ ok:false, msg:'Usuario fuera de tu alcance' });
+    if (!(await verificarPasswordActual(req, req.body?.admin_password))) {
+      return res.status(401).json({ ok:false, msg:'Confirma tu contraseña para reiniciar el autenticador.' });
+    }
+    await TwoFactor.reset(id);
+    await Audit.log(req, { accion:'mfa_reiniciado', modulo:'usuarios', entidad:'usuario', entidad_id:id }).catch(() => {});
+    res.json({ ok:true, msg: id === Number(sesion(req)?.id)
+      ? 'Autenticador reiniciado. Al volver a ingresar escanearás un QR nuevo.'
+      : 'Autenticador reiniciado. En su próximo ingreso escaneará un QR nuevo.' });
   }),
 
   toggleEstado: wrap(async (req, res) => {

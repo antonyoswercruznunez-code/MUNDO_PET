@@ -774,3 +774,13 @@ body.sidebar-abierto #sidebar-backdrop { display: block; }
   .page-header-left h2 { font-size: 17px; }
   .topbar-badge { display: none; }
 }
+/* ── BARRA SUPERIOR: acceso a la tienda web ───────────────────── */
+#btn-ver-tienda {
+  display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 13px; border-radius: 10px;
+  border: 1px solid var(--card-border); background: var(--card-bg); color: var(--texto-fuerte);
+  font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
+  transition: border-color .15s, color .15s, transform .15s;
+}
+#btn-ver-tienda i { font-size: 17px; color: var(--verde); }
+#btn-ver-tienda:hover { border-color: var(--verde); color: var(--verde); transform: translateY(-1px); }
+@media (max-width: 768px) { #btn-ver-tienda span { display: none; } #btn-ver-tienda { padding: 0 10px; } }

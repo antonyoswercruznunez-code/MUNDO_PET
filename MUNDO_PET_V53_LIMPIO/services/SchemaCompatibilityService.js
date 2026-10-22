@@ -325,6 +325,15 @@ async function ensureSchema(db, projectRoot) {
   // El delivery se cobra solo por zonas: la tarifa única ya no existe.
   await db.query("DELETE FROM configuracion WHERE clave IN ('delivery_costo','delivery_cargo_unidad')").catch(() => {});
 
+  // Verificación en dos pasos (Authenticator) para todos los usuarios del panel.
+  for (const [column, definition] of [
+    ['clave_secreta_2fa', 'VARCHAR(255) NULL'],
+    ['doble_factor_activo', 'TINYINT NOT NULL DEFAULT 0'],
+    ['doble_factor_paso', 'BIGINT NULL']
+  ]) {
+    if (await addColumn(db, 'usuarios', column, definition)) changes.push(`usuarios.${column}`);
+  }
+
   // Mapa en vivo: puntos que comparte quien reparte.
   if (!(await tableExists(db, 'usuario_ubicaciones'))) {
     await db.query(`CREATE TABLE usuario_ubicaciones (

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { rateLimit } = require('express-rate-limit');
-const { auth, authAllowLocked, unlock, activity } = require('../middleware/auth');
+const { auth, authAllowLocked, authPendingMfa, unlock, activity } = require('../middleware/auth');
 const { requirePermission, requireAny } = require('../middleware/permisos');
 const upload = require('../middleware/upload');
 const { authWeb } = require('../middleware/authWeb');
@@ -31,6 +31,7 @@ const Ubicacion = require('../controllers/UbicacionController');
 
 const loginLimiter = rateLimit({ windowMs: 15*60*1000, limit: 12, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos. Espera unos minutos.'} });
 const resetLimiter = rateLimit({ windowMs: 15*60*1000, limit: 6, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiadas solicitudes. Espera unos minutos.'} });
+const unlockLimiter = rateLimit({ windowMs: 10*60*1000, limit: 10, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Demasiados intentos de desbloqueo. Espera unos minutos.'} });
 const uploadLimiter = rateLimit({ windowMs: 10*60*1000, limit: 30, standardHeaders:'draft-7', legacyHeaders:false, message:{ok:false,msg:'Límite de cargas alcanzado.'} });
 
 // Público y autenticación de empleados
@@ -41,7 +42,9 @@ router.post('/auth/reset-password', resetLimiter, Auth.resetPassword);
 router.get('/auth/session', authAllowLocked, Auth.session);
 router.post('/auth/unlock', authAllowLocked, unlock);
 router.post('/auth/activity', auth, activity);
-router.post('/auth/logout', authAllowLocked, Auth.logout);
+router.post('/auth/logout', authPendingMfa, Auth.logout);
+router.get('/auth/2fa', authPendingMfa, Auth.mfaEstado);
+router.post('/auth/2fa', unlockLimiter, authPendingMfa, Auth.mfaVerificar);
 
 // Ecommerce público
 router.get('/tienda/config', Tienda.config);
@@ -73,6 +76,7 @@ router.post('/usuarios', auth, requirePermission('usuarios.gestionar'), Usuario.
 router.put('/usuarios/:id', auth, requirePermission('usuarios.gestionar'), Usuario.update);
 router.delete('/usuarios/:id', auth, requirePermission('usuarios.gestionar'), Usuario.remove);
 router.patch('/usuarios/:id/estado', auth, requirePermission('usuarios.gestionar'), Usuario.toggleEstado);
+router.patch('/usuarios/:id/2fa-reset', auth, unlockLimiter, requirePermission('usuarios.gestionar'), Usuario.resetDobleFactor);
 router.get('/perfiles', auth, requirePermission('perfiles.ver'), Perfil.list);
 router.post('/perfiles', auth, requirePermission('perfiles.gestionar'), Perfil.create);
 router.put('/perfiles/:id', auth, requirePermission('perfiles.gestionar'), Perfil.update);

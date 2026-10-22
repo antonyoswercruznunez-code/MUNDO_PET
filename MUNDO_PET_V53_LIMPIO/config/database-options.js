@@ -2,7 +2,7 @@ function databaseOptions() {
   const isProd = process.env.NODE_ENV === 'production';
   const user = process.env.DB_USER || (isProd ? '' : 'root');
   const password = process.env.DB_PASSWORD || '';
-  const database = process.env.DB_NAME || 'sistema_ventas';
+  const database = process.env.DB_NAME || 'gas_sistema';
   if (isProd) {
     if (!user || !database) throw new Error('DB_USER y DB_NAME son obligatorios en producción');
     if (String(user).toLowerCase() === 'root') throw new Error('No uses el usuario root de MySQL en producción');

@@ -139,7 +139,9 @@ app.use(
           "'self'",
           'https://cdn.jsdelivr.net',
           'https://accounts.google.com',
-          'https://oauth2.googleapis.com'
+          'https://oauth2.googleapis.com',
+          // Búsqueda de direcciones del mapa de delivery (OpenStreetMap).
+          'https://nominatim.openstreetmap.org'
         ],
 
         frameSrc: [

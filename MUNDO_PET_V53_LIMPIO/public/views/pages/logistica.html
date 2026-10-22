@@ -1,7 +1,6 @@
 <div class="page-header lg-page-head">
   <div class="page-header-left">
     <h2><i class="ti ti-truck-delivery"></i> Logística y reparto</h2>
-    <p>Prepara pedidos delivery, asígnalos a una ruta y registra cada entrega.</p>
   </div>
   <div class="lg-head-actions">
     <button id="lg-refrescar" class="btn btn-outline"><i class="ti ti-refresh"></i> Actualizar</button>
@@ -24,6 +23,7 @@
 <div class="lg-tabs" role="tablist">
   <button class="active" data-lg-tab="pedidos"><i class="ti ti-package"></i> Pedidos delivery <span id="lg-ready-count" class="lg-tab-count">0</span></button>
   <button data-lg-tab="rutas"><i class="ti ti-route"></i> Rutas</button>
+  <button data-lg-tab="mapa" id="lg-tab-btn-mapa" hidden><i class="ti ti-map-2"></i> Mapa en vivo</button>
   <button data-lg-tab="resumen"><i class="ti ti-chart-bar"></i> Resumen</button>
   <button data-lg-tab="repartidores"><i class="ti ti-users"></i> Repartidores</button>
   <button data-lg-tab="vehiculos"><i class="ti ti-truck"></i> Camiones</button>
@@ -35,7 +35,7 @@
       <label>Sucursal</label>
       <select id="lg-pedidos-sucursal" class="form-control"><option value="">Todas</option></select>
     </div>
-    <div>
+    <div hidden>
       <label>Etapa</label>
       <select id="lg-pedidos-estado" class="form-control">
         <option value="">Todas</option><option value="pendiente">Pendiente de preparación</option>
@@ -47,6 +47,7 @@
   </div>
   <div id="lg-pedido-kpis" class="lg-mini-kpis"></div>
   <div class="card lg-table-card">
+    <div class="oq-chips" id="lg-chips"></div>
     <div class="table-responsive">
       <table class="table lg-table">
         <thead><tr><th>Pedido</th><th>Cliente y contacto</th><th>Sucursal</th><th>Dirección</th><th>Unidades</th><th>Etapa</th><th>Acción siguiente</th></tr></thead>
@@ -66,6 +67,8 @@
   <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Ruta</th><th>Fecha</th><th>Repartidor</th><th>Camión</th><th>Paradas</th><th>Progreso</th><th>Estado</th><th></th></tr></thead><tbody id="lg-rutas-body"></tbody></table></div></div>
 </section>
 
+<section id="lg-tab-mapa" class="lg-panel" hidden><div id="lg-live"></div></section>
+
 <section id="lg-tab-resumen" class="lg-panel" hidden>
   <div id="lg-kpis" class="stats-grid"></div>
   <div class="grid-2 lg-summary-grid">
@@ -75,12 +78,12 @@
 </section>
 
 <section id="lg-tab-repartidores" class="lg-panel" hidden>
-  <div class="lg-section-head"><div><h3>Repartidores</h3><p>Conductores disponibles para asignación.</p></div><button id="lg-nuevo-repartidor" class="btn btn-primary"><i class="ti ti-user-plus"></i> Nuevo repartidor</button></div>
+  <div class="lg-section-head"><div><h3>Repartidores</h3></div><button id="lg-nuevo-repartidor" class="btn btn-primary"><i class="ti ti-user-plus"></i> Nuevo repartidor</button></div>
   <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Repartidor</th><th>DNI</th><th>Contacto</th><th>Licencia</th><th>Vencimiento</th><th>Sucursal</th><th>Estado</th><th></th></tr></thead><tbody id="lg-repartidores-body"></tbody></table></div></div>
 </section>
 
 <section id="lg-tab-vehiculos" class="lg-panel" hidden>
-  <div class="lg-section-head"><div><h3>Camiones</h3><p>Unidades disponibles y documentación vigente.</p></div><button id="lg-nuevo-vehiculo" class="btn btn-primary"><i class="ti ti-truck"></i> Nuevo camión</button></div>
+  <div class="lg-section-head"><div><h3>Camiones</h3></div><button id="lg-nuevo-vehiculo" class="btn btn-primary"><i class="ti ti-truck"></i> Nuevo camión</button></div>
   <div class="card lg-table-card"><div class="table-responsive"><table class="table lg-table"><thead><tr><th>Placa</th><th>Vehículo</th><th>Capacidad</th><th>SOAT</th><th>Revisión</th><th>Sucursal</th><th>Estado</th><th></th></tr></thead><tbody id="lg-vehiculos-body"></tbody></table></div></div>
 </section>
 

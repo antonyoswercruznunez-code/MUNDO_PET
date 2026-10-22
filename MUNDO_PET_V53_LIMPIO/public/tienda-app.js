@@ -293,43 +293,112 @@ const Tienda = {
       </div>`; }).join('')}`).join('');
     foot.innerHTML = `<div class="cart-foot-actions"><button class="cart-clear" onclick="Tienda.vaciarCarrito()"><i class="ti ti-trash"></i> Vaciar carrito</button><span>${this.cart.reduce((sum,item)=>sum+Number(item.cantidad||0),0)} unidades</span></div><div class="cart-total-row big"><span>Total de productos</span><span>S/ ${this.cartTotal().toFixed(2)}</span></div><small class="cart-price-note">Los precios mostrados son por unidad y se recalculan automáticamente según la cantidad.</small><button class="btn-block" onclick="Tienda.irCheckout()"><i class="ti ti-credit-card"></i> Finalizar compra</button>`;
   },
+  // ¿La tienda cobra el delivery por zonas en el mapa?
+  usaZonasDelivery() {
+    const d = this.cfg?.delivery;
+    return !!d && d.zonas?.length > 0 && (!!d.origen || d.sucursales?.length > 0);
+  },
   deliveryFee() {
     if (this._entrega !== 'delivery') return 0;
-    if (this._deliveryQuote && Number.isFinite(Number(this._deliveryQuote.total))) return Number(this._deliveryQuote.total);
-    const subtotal=this.cartTotal();
-    const free=Number(this.cfg?.delivery_gratis_desde||0);
-    if (free>0 && subtotal>=free) return 0;
-    const units=this.cart.reduce((sum,item)=>sum+Number(item.cantidad||0),0);
-    const base=Math.max(0,Number(this.cfg?.delivery_costo||0));
-    const extra=Math.max(0,Number(this.cfg?.delivery_cargo_unidad||0));
-    return Number((base+Math.max(0,units-1)*extra).toFixed(2));
+    return this._deliveryQuote && this._deliveryQuote.covered !== false ? Number(this._deliveryQuote.total || 0) : 0;
   },
   checkoutTotal() { return Number((this.cartTotal()+this.deliveryFee()).toFixed(2)); },
   async cotizarDelivery() {
     if (this._entrega !== 'delivery') { this._deliveryQuote=null; this.actualizarTotalCheckout(); return; }
     const payload={
       subtotal:this.cartTotal(),
-      unidades:this.cart.reduce((sum,item)=>sum+Number(item.cantidad||0),0),
       sucursal_ids:[...new Set(this.cart.map(item=>Number(item.sucursal_id)).filter(Boolean))],
-      departamento:document.getElementById('ck-dep')?.value||'',
-      provincia:document.getElementById('ck-prov')?.value||'',
-      distrito:document.getElementById('ck-dist')?.value||''
+      lat:this._deliveryPoint?.lat ?? null,
+      lng:this._deliveryPoint?.lng ?? null
     };
     try{
       const r=await fetch(`${API}/delivery-cotizar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const d=await r.json(); if(d.ok)this._deliveryQuote=d.quote;
+      const d=await r.json(); this._deliveryQuote=d.ok?d.quote:null;
     }catch(_){ this._deliveryQuote=null; }
     this.actualizarTotalCheckout();
   },
   programarCotizacionDelivery(){clearTimeout(this._deliveryQuoteTimer);this._deliveryQuoteTimer=setTimeout(()=>this.cotizarDelivery(),350);},
   actualizarTotalCheckout() {
     const el=document.getElementById('ck-total-estimado'); if(el) el.textContent=`S/ ${this.checkoutTotal().toFixed(2)}`;
+    const q=this._deliveryQuote;
     const fee=document.getElementById('ck-delivery-fee');
     if(fee){
-      const v=this.deliveryFee(); fee.style.display=this._entrega==='delivery'?'flex':'none'; fee.querySelector('b').textContent=v?`S/ ${v.toFixed(2)}`:'Gratis';
+      fee.style.display=this._entrega==='delivery'?'flex':'none';
+      const amount=document.getElementById('ck-delivery-amount');
       const detail=document.getElementById('ck-delivery-detail');
-      if(detail&&this._entrega==='delivery')detail.textContent=this._deliveryQuote?`${this._deliveryQuote.tariff_name} · ${this._deliveryQuote.calculation || `base S/ ${Number(this._deliveryQuote.base||0).toFixed(2)} + ${Number(this._deliveryQuote.extra_units||0)} × S/ ${Number(this._deliveryQuote.per_unit||0).toFixed(2)}`}`:'Calculando tarifa...';
+      if(amount) amount.textContent=!q||q.covered===false?'—':(q.total?`S/ ${Number(q.total).toFixed(2)}`:'Gratis');
+      if(detail) detail.textContent=!q?'Calculando…':(q.covered===false?(q.needs_location?'Marca tu ubicación en el mapa':'Fuera de la zona de reparto'):(q.calculation||q.zone_name||''));
     }
+    const status=document.getElementById('ck-map-status');
+    if(status&&this._entrega==='delivery'){
+      status.className='dz-status'+(!q||q.needs_location?'':(q.covered===false?' bad':' ok'));
+      status.textContent='';
+      const icon=document.createElement('i'); icon.className='ti '+(!q||q.needs_location?'ti-map-pin':(q.covered===false?'ti-map-pin-off':'ti-truck-delivery'));
+      const text=document.createElement('div'); const title=document.createElement('b'); const sub=document.createElement('span');
+      if(!q||q.needs_location){ title.textContent='¿Dónde entregamos tu pedido?'; sub.textContent='Busca tu dirección, usa tu ubicación o toca el mapa y arrastra el pin.'; }
+      else if(q.covered===false){ title.textContent='Fuera de la zona de reparto'; sub.textContent=q.description||''; }
+      else { title.textContent=q.zone_name||'Delivery'; sub.textContent=`A ${Number(q.distance_km||0).toFixed(1)} km de ${q.origin_name||'la tienda'}${q.free?' · envío gratis por el monto de tu compra':''}`; }
+      text.append(title,sub); status.append(icon,text);
+      if(q&&q.covered!==false&&!q.needs_location){ const price=document.createElement('span'); price.className='dz-price'; price.textContent=q.total?`S/ ${Number(q.total).toFixed(2)}`:'Gratis'; status.append(price); }
+    }
+  },
+  // Mapa del checkout: se crea la primera vez que el cliente elige delivery.
+  async iniciarMapaDelivery(){
+    const host=document.getElementById('ck-map'); if(!host||host.dataset.ready) return;
+    host.dataset.ready='1';
+    const d=this.cfg.delivery; const origins=(d.sucursales?.length?d.sucursales.filter(o=>this._checkoutBranches.some(b=>Number(b.id)===Number(o.id))):[]);
+    const points=origins.length?origins:(d.origen?[d.origen]:d.sucursales||[]);
+    let L; try{ L=await MPMap.load(); }catch(e){ host.dataset.ready=''; host.innerHTML=`<div style="padding:24px;text-align:center;color:#64748b;font-size:13px">${this.esc(e.message)}</div>`; return; }
+    const map=MPMap.create(L,host,{center:points[0],zoom:13});
+    MPMap.drawZones(L,map,{origins:points,zones:d.zonas,showOrigin:false});
+    this._map=map; this._mapL=L; this._mapOrigin=points[0]||null;
+    const legend=document.getElementById('ck-map-legend');
+    if(legend) legend.innerHTML=[...d.zonas].sort((a,b)=>a.km_hasta-b.km_hasta).map((z,i)=>`<span><i style="--c:${MPMap.zoneColor(i)}"></i>${this.esc(z.nombre)} · hasta ${Number(z.km_hasta)} km · S/ ${Number(z.costo).toFixed(2)}</span>`).join('')+(Number(d.gratis_desde)>0?`<span><i class="ti ti-gift" style="border:0;background:none;width:auto;height:auto;color:#16a34a"></i>Gratis desde S/ ${Number(d.gratis_desde).toFixed(2)}</span>`:'');
+    map.on('click',e=>this.fijarPuntoDelivery({lat:e.latlng.lat,lng:e.latlng.lng},{describir:true}));
+    const q=document.getElementById('ck-map-q'); const results=document.getElementById('ck-map-results');
+    let timer=null;
+    const buscar=async()=>{
+      const text=q.value.trim(); if(text.length<4){ results.classList.remove('show'); return; }
+      results.classList.add('show'); results.innerHTML='<div class="dz-empty">Buscando…</div>';
+      try{
+        const rows=await MPMap.search(text,this._mapOrigin);
+        results.textContent='';
+        if(!rows.length){ results.innerHTML='<div class="dz-empty">No encontramos esa dirección. Prueba con una calle o lugar cercano, o marca el punto en el mapa.</div>'; return; }
+        rows.forEach(row=>{ const b=document.createElement('button'); b.type='button'; const i=document.createElement('i'); i.className='ti ti-map-pin'; const t=document.createElement('span'); t.textContent=row.label; b.append(i,t);
+          b.onclick=()=>{ results.classList.remove('show'); q.value=MPMap.shortAddress(row.address,row.label); this.fijarPuntoDelivery({lat:row.lat,lng:row.lng},{direccion:MPMap.shortAddress(row.address,row.label),address:row.address,centrar:true}); };
+          results.append(b); });
+      }catch(_){ results.innerHTML='<div class="dz-empty">El buscador no respondió. Marca el punto directamente en el mapa.</div>'; }
+    };
+    q.addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(buscar,650); });
+    q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); clearTimeout(timer); buscar(); } if(e.key==='Escape') results.classList.remove('show'); });
+    document.addEventListener('click',e=>{ if(!e.target.closest?.('.dz-search')) results.classList.remove('show'); });
+    document.getElementById('ck-map-gps').onclick=()=>{
+      if(!navigator.geolocation) return this.toast('Tu navegador no permite obtener la ubicación','err');
+      const btn=document.getElementById('ck-map-gps'); btn.disabled=true;
+      navigator.geolocation.getCurrentPosition(
+        pos=>{ btn.disabled=false; this.fijarPuntoDelivery({lat:pos.coords.latitude,lng:pos.coords.longitude},{describir:true,centrar:true}); },
+        ()=>{ btn.disabled=false; this.toast('No pudimos obtener tu ubicación. Búscala o márcala en el mapa.','err'); },
+        {enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+    };
+    if(this._deliveryPoint) this.fijarPuntoDelivery(this._deliveryPoint,{centrar:true});
+  },
+  async fijarPuntoDelivery(point,{direccion='',address=null,describir=false,centrar=false}={}){
+    this._deliveryPoint={lat:Number(point.lat),lng:Number(point.lng)};
+    const L=this._mapL, map=this._map;
+    if(L&&map){
+      if(!this._mapMarker){
+        this._mapMarker=L.marker([point.lat,point.lng],{icon:MPMap.pin(L,{color:'#dc2626',icon:'ti-home'}),draggable:true,autoPan:true}).addTo(map);
+        this._mapMarker.on('dragend',()=>{ const p=this._mapMarker.getLatLng(); this.fijarPuntoDelivery({lat:p.lat,lng:p.lng},{describir:true}); });
+      } else this._mapMarker.setLatLng([point.lat,point.lng]);
+      if(centrar) map.setView([point.lat,point.lng],Math.max(map.getZoom(),16));
+    }
+    const fill=(text,addr)=>{
+      const input=document.getElementById('ck-direccion'); if(input&&text&&(!input.value.trim()||input.dataset.auto==='1')){ input.value=text; input.dataset.auto='1'; }
+      if(addr){ const set=(id,v)=>{const el=document.getElementById(id); if(el&&v) el.value=v;}; set('ck-dep',addr.state||addr.region); set('ck-prov',addr.county||addr.state_district||addr.city); set('ck-dist',addr.city_district||addr.suburb||addr.town||addr.city||addr.village); }
+    };
+    if(direccion||address) fill(direccion,address);
+    this.cotizarDelivery();
+    if(describir){ try{ const r=await MPMap.reverse(this._deliveryPoint); fill(MPMap.shortAddress(r.address,r.label),r.address); }catch(_){ /* la dirección se puede escribir a mano */ } }
   },
   validarVoucher(file) {
     if(!file) return true;
@@ -417,9 +486,15 @@ const Tienda = {
         <label style="font-size:13px;font-weight:700;margin:9px 0 8px;display:block">Tipo de entrega</label>
         <div class="radio-group">${entregas.join('')}</div>
         <div id="dir-wrap" style="display:none">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div class="field"><label>Departamento</label><input id="ck-dep"></div><div class="field"><label>Provincia</label><input id="ck-prov"></div><div class="field"><label>Distrito</label><input id="ck-dist"></div></div>
-          <div class="field"><label>Dirección de entrega</label><textarea id="ck-direccion" rows="2" placeholder="Av./Calle, número, lote"></textarea></div>
-          <div class="field"><label>Referencia</label><input id="ck-ref" placeholder="Cerca de..."></div>
+          <input type="hidden" id="ck-dep"><input type="hidden" id="ck-prov"><input type="hidden" id="ck-dist">
+          ${this.usaZonasDelivery()?`<div class="dz-box">
+            <div class="dz-search"><i class="ti ti-search"></i><input id="ck-map-q" placeholder="Busca tu dirección o un lugar cercano" autocomplete="off" aria-label="Buscar dirección"><button type="button" id="ck-map-gps" title="Usar mi ubicación actual"><i class="ti ti-current-location"></i><span>Mi ubicación</span></button><div id="ck-map-results" class="dz-results" role="listbox"></div></div>
+            <div id="ck-map" class="dz-map"></div>
+            <div id="ck-map-status" class="dz-status"></div>
+            <div id="ck-map-legend" class="dz-legend"></div>
+          </div>`:''}
+          <div class="field"><label>Dirección de entrega</label><textarea id="ck-direccion" rows="2" placeholder="Av./Calle, número, lote" oninput="this.dataset.auto=''"></textarea></div>
+          <div class="field"><label>Referencia</label><input id="ck-ref" placeholder="Color de la casa, piso, cerca de..."></div>
         </div>
         <div id="pickup-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;padding:11px;border-radius:9px;font-size:12px;color:#1e40af;margin-bottom:12px">${branches.length>1?'Deberás recoger cada grupo en su sucursal: '+branches.map(x=>this.esc(x.nombre)).join(', '):'Recogerás tu compra en la sucursal correspondiente.'}<div id="pickup-slots" style="margin-top:10px"></div></div>
         <label style="font-size:13px;font-weight:700;margin:9px 0 8px;display:block">Método de pago</label>
@@ -429,18 +504,19 @@ const Tienda = {
         <div class="field"><label>Captura del pago (opcional)</label><label class="mp-file-picker"><i class="ti ti-photo-up"></i><span id="ck-voucher-name">Elegir una imagen</span><input id="ck-voucher" type="file" accept="image/jpeg,image/png,image/webp" onchange="const f=this.files[0]||null;if(!Tienda.validarVoucher(f)){this.value='';Tienda._voucherFile=null;document.getElementById('ck-voucher-name').textContent='Elegir una imagen';return;}Tienda._voucherFile=f;document.getElementById('ck-voucher-name').textContent=f?.name||'Elegir una imagen'"></label><small>Solo JPG, PNG o WEBP.</small></div>
         <label class="check-line" style="margin:10px 0"><input type="checkbox" id="ck-solicita-factura" onchange="document.getElementById('ck-factura-comentario').style.display=this.checked?'block':'none'"> Solicitar factura después de aprobar el pedido</label>
         <div class="field" id="ck-factura-comentario" style="display:none"><label>Comentario para facturación (opcional)</label><textarea id="ck-comentario-factura" rows="2" maxlength="500" placeholder="Ej.: enviar la factura a este correo o indicar una referencia. La venta siempre se crea primero como nota de venta."></textarea></div>
-        <div id="ck-delivery-fee" class="cart-total-row" style="display:none"><span><b>Costo de delivery</b><small id="ck-delivery-detail" style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Calculando tarifa...</small></span><b>S/ 0.00</b></div><div class="cart-total-row big" style="margin:18px 0"><span>Total estimado</span><span id="ck-total-estimado">S/ ${this.checkoutTotal().toFixed(2)}</span></div>
+        <div id="ck-delivery-fee" class="cart-total-row" style="display:none"><span><b>Costo de delivery</b><small id="ck-delivery-detail" style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Calculando…</small></span><b id="ck-delivery-amount">—</b></div><div class="cart-total-row big" style="margin:18px 0"><span>Total estimado</span><span id="ck-total-estimado">S/ ${this.checkoutTotal().toFixed(2)}</span></div>
         <button class="btn-block" id="ck-confirm" onclick="Tienda.confirmarPedido()"><i class="ti ti-check"></i> Confirmar pedido</button>
       </div>`, 'wide');
     this._entrega=null;this._metodo=methods[0].id;this._deliveryQuote=null;
-    ['ck-dep','ck-prov','ck-dist'].forEach(id=>document.getElementById(id)?.addEventListener('input',()=>this.programarCotizacionDelivery()));
+    // El mapa se vuelve a crear en cada checkout; el punto elegido se conserva.
+    this._map=null;this._mapMarker=null;this._mapL=null;
   },
   async selEntrega(el) {
     document.querySelectorAll('[data-ent]').forEach(x=>x.classList.remove('active'));el.classList.add('active');this._entrega=el.dataset.ent;
     document.getElementById('dir-wrap').style.display=this._entrega==='delivery'?'block':'none';
     document.getElementById('pickup-info').style.display=this._entrega==='recojo'?'block':'none';
     if(this._entrega==='recojo')await this.cargarHorariosRecojo();
-    if(this._entrega==='delivery')await this.cotizarDelivery();else this.actualizarTotalCheckout();
+    if(this._entrega==='delivery'){ if(this.usaZonasDelivery()) await this.iniciarMapaDelivery(); await this.cotizarDelivery(); } else this.actualizarTotalCheckout();
   },
   async cargarHorariosRecojo(){
     const root=document.getElementById('pickup-slots');if(!root)return;root.innerHTML='<div style="color:#64748b">Cargando horarios...</div>';
@@ -459,20 +535,24 @@ const Tienda = {
     const tipo=document.getElementById('ck-tipo-doc').value;const doc=document.getElementById('ck-doc').value.replace(/\D/g,'');
     if(doc.length!==(tipo==='dni'?8:11))return this.toast('Documento inválido','err');
     const btn=document.getElementById('ck-doc-search');btn.disabled=true;
-    try{const r=await fetch(`${API}/documento?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc)}`,{credentials:'include'});const d=await r.json();if(!d.ok)return this.toast(d.msg||'No encontrado','err');this.docSnapshot=d.cliente;document.getElementById('ck-doc').disabled=true;document.getElementById('ck-tipo-doc').disabled=true;document.getElementById('ck-doc-result').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:#ecfdf5;border:1px solid #a7f3d0;padding:11px;border-radius:9px;color:#166534"><div><b><i class="ti ti-circle-check"></i> ${this.esc(d.cliente.nombre_completo||d.cliente.razon_social||d.cliente.nombre)}</b><div style="font-size:11px">Documento validado</div></div><button onclick="Tienda.limpiarDocumento()" title="Cambiar documento" style="border:0;background:transparent;color:#166534;font-size:20px;cursor:pointer"><i class="ti ti-x"></i></button></div>`;document.getElementById('ck-telefono').value=d.cliente.telefono||'';document.getElementById('ck-dep').value=d.cliente.departamento||'';document.getElementById('ck-prov').value=d.cliente.provincia||'';document.getElementById('ck-dist').value=d.cliente.distrito||'';document.getElementById('ck-direccion').value=d.cliente.direccion_api||'';if(this._entrega==='delivery')await this.cotizarDelivery();}finally{btn.disabled=false;}
+    try{const r=await fetch(`${API}/documento?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc)}`,{credentials:'include'});const d=await r.json();if(!d.ok)return this.toast(d.msg||'No encontrado','err');this.docSnapshot=d.cliente;document.getElementById('ck-doc').disabled=true;document.getElementById('ck-tipo-doc').disabled=true;document.getElementById('ck-doc-result').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;background:#ecfdf5;border:1px solid #a7f3d0;padding:11px;border-radius:9px;color:#166534"><div><b><i class="ti ti-circle-check"></i> ${this.esc(d.cliente.nombre_completo||d.cliente.razon_social||d.cliente.nombre)}</b><div style="font-size:11px">Documento validado</div></div><button onclick="Tienda.limpiarDocumento()" title="Cambiar documento" style="border:0;background:transparent;color:#166534;font-size:20px;cursor:pointer"><i class="ti ti-x"></i></button></div>`;document.getElementById('ck-telefono').value=d.cliente.telefono||'';document.getElementById('ck-dep').value=d.cliente.departamento||'';document.getElementById('ck-prov').value=d.cliente.provincia||'';document.getElementById('ck-dist').value=d.cliente.distrito||'';{const dirInput=document.getElementById('ck-direccion');if(!dirInput.value.trim()||dirInput.dataset.auto==='1'){dirInput.value=d.cliente.direccion_api||'';dirInput.dataset.auto='1';}}if(this._entrega==='delivery')await this.cotizarDelivery();}finally{btn.disabled=false;}
   },
   limpiarDocumento(){this.docSnapshot=null;const d=document.getElementById('ck-doc');const t=document.getElementById('ck-tipo-doc');d.disabled=false;t.disabled=false;d.value='';document.getElementById('ck-doc-result').innerHTML='';d.focus();},
   async confirmarPedido(){
     if(!this.docSnapshot)return this.toast('Busca y confirma tu DNI o RUC','err');
     if(!this._entrega)return this.toast('Selecciona tipo de entrega','err');
-    const direccion=document.getElementById('ck-direccion')?.value.trim()||'';if(this._entrega==='delivery'&&!direccion)return this.toast('Ingresa la dirección','err');
+    if(this._entrega==='delivery'&&this.usaZonasDelivery()){
+      if(!this._deliveryPoint){ document.getElementById('ck-map')?.scrollIntoView({behavior:'smooth',block:'center'}); return this.toast('Marca en el mapa dónde entregamos tu pedido','err'); }
+      await this.cotizarDelivery();
+      if(!this._deliveryQuote||this._deliveryQuote.covered===false) return this.toast(this._deliveryQuote?.description||'Tu ubicación está fuera de la zona de reparto','err');
+    }
+    const direccion=document.getElementById('ck-direccion')?.value.trim()||'';if(this._entrega==='delivery'&&!direccion)return this.toast('Escribe la dirección de entrega','err');
     const email=document.getElementById('ck-email')?.value.trim().toLowerCase()||'';
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return this.toast('Ingresa el correo obligatorio del comprador','err');
     const recojo_horarios={};if(this._entrega==='recojo'){for(const el of document.querySelectorAll('.pickup-slot')){if(!el.value)return this.toast('Selecciona un horario para cada sucursal','err');recojo_horarios[el.dataset.sid]=Number(el.value);}}
     if(this._voucherFile&&!this.validarVoucher(this._voucherFile))return;
-    if(this._entrega==='delivery')await this.cotizarDelivery();
     const btn=document.getElementById('ck-confirm');btn.disabled=true;btn.textContent='Registrando...';
-    const body={recojo_horarios,items:this.cart.map(i=>({producto_id:i.id,cantidad:i.cantidad})),numero_doc:this.docSnapshot.numero_doc,tipo_entrega:this._entrega,direccion_entrega:direccion,departamento:document.getElementById('ck-dep')?.value||'',provincia:document.getElementById('ck-prov')?.value||'',distrito:document.getElementById('ck-dist')?.value||'',referencia:document.getElementById('ck-ref')?.value||'',telefono:document.getElementById('ck-telefono')?.value||'',email,persona_recibe:this.docSnapshot.nombre_completo||this.docSnapshot.nombre,metodo_pago:this._metodo,codigo_operacion:document.getElementById('ck-codigo')?.value.trim()||'',solicitar_factura:!!document.getElementById('ck-solicita-factura')?.checked,comentario_facturacion:document.getElementById('ck-comentario-factura')?.value.trim()||''};
+    const body={recojo_horarios,items:this.cart.map(i=>({producto_id:i.id,cantidad:i.cantidad})),numero_doc:this.docSnapshot.numero_doc,tipo_entrega:this._entrega,direccion_entrega:direccion,lat:this._entrega==='delivery'?(this._deliveryPoint?.lat??null):null,lng:this._entrega==='delivery'?(this._deliveryPoint?.lng??null):null,departamento:document.getElementById('ck-dep')?.value||'',provincia:document.getElementById('ck-prov')?.value||'',distrito:document.getElementById('ck-dist')?.value||'',referencia:document.getElementById('ck-ref')?.value||'',telefono:document.getElementById('ck-telefono')?.value||'',email,persona_recibe:this.docSnapshot.nombre_completo||this.docSnapshot.nombre,metodo_pago:this._metodo,codigo_operacion:document.getElementById('ck-codigo')?.value.trim()||'',solicitar_factura:!!document.getElementById('ck-solicita-factura')?.checked,comentario_facturacion:document.getElementById('ck-comentario-factura')?.value.trim()||''};
     try{const r=await fetch(`${API}/pedidos`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});const d=await r.json();if(!d.ok)return this.toast(d.msg||'No se pudo crear','err');let voucherOk=false;if(this._voucherFile){const fd=new FormData();fd.append('voucher',this._voucherFile);const vr=await fetch(`${API}/mis-pedidos/${d.pedido_id}/voucher`,{method:'POST',credentials:'include',body:fd});voucherOk=vr.ok;}this.cart=[];this.saveCart();this.cerrarModal();this.showModal(`<div class="modal-body" style="text-align:center;padding:40px 30px"><div style="width:80px;height:80px;background:var(--brand-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><i class="ti ti-circle-check" style="font-size:48px;color:var(--ok)"></i></div><h3 style="font-size:22px;margin-bottom:8px">¡Pedido registrado!</h3><p style="color:var(--muted)">Orden <b>${this.esc(d.numero_orden)}</b> · S/ ${Number(d.total).toFixed(2)}</p><p style="font-size:12px;color:var(--muted);margin:10px 0 22px">Reserva temporal: ${Number(d.reserva_minutos)} minutos.${d.multisucursal?' Pedido multisucursal.':''}${voucherOk?' Captura guardada.':''}</p><button class="btn-block" onclick="Tienda.cerrarModal();Tienda.verPedidos()"><i class="ti ti-package"></i> Ver mis pedidos</button></div>`);}catch(e){this.toast('Error al crear pedido','err');}finally{if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Confirmar pedido';}}
   },
 

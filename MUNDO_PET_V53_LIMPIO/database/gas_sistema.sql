@@ -1919,7 +1919,7 @@ INSERT INTO `configuracion` (`clave`,`valor`,`grupo`) VALUES
 ('ecommerce_sucursal_central_id','1','ecommerce'),('ecommerce_whatsapp','','ecommerce'),('reserva_web_minutes','30','ecommerce'),
 ('tienda_nombre','Mundo Pet','ecommerce'),('tienda_descripcion','Tienda online y distribución por sucursal','ecommerce'),
 ('tienda_direccion','','ecommerce'),('tienda_horario','Lun-Sáb 09:00 - 20:00','ecommerce'),('tienda_facebook','','ecommerce'),('tienda_instagram','','ecommerce'),
-('delivery_costo','8.00','ecommerce'),('delivery_cargo_unidad','0.50','ecommerce'),('delivery_gratis_desde','150.00','ecommerce'),
+('delivery_gratis_desde','150.00','ecommerce'),
 ('yape_activo','true','pagos'),('yape_numero','','pagos'),('yape_titular','','pagos'),('yape_qr_ruta','','pagos'),
 ('plin_activo','true','pagos'),('plin_numero','','pagos'),('plin_titular','','pagos'),('plin_qr_ruta','','pagos'),
 ('transferencia_activo','true','pagos'),('transferencia_banco','','pagos'),('transferencia_titular','','pagos'),('transferencia_cuenta','','pagos'),('transferencia_cci','','pagos'),('transferencia_imagen_ruta','','pagos'),
@@ -1942,6 +1942,22 @@ INSERT INTO `cajas_fisicas`
 ALTER TABLE `sucursales`
   ADD COLUMN `lat` decimal(10,7) DEFAULT NULL,
   ADD COLUMN `lng` decimal(10,7) DEFAULT NULL;
+
+-- Delivery por zonas de distancia (anillos en km desde el punto de despacho)
+CREATE TABLE IF NOT EXISTS `delivery_zonas` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(80) NOT NULL,
+  `km_hasta` decimal(6,2) NOT NULL,
+  `costo` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_delivery_zona_km` (`activo`,`km_hasta`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `delivery_zonas` (`nombre`,`km_hasta`,`costo`) VALUES
+('Zona cercana',3,5),('Zona media',6,8),('Zona lejana',10,12);
 
 -- Mapa en vivo: puntos que comparte quien reparte
 CREATE TABLE IF NOT EXISTS usuario_ubicaciones (

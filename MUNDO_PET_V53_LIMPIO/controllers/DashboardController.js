@@ -19,7 +19,7 @@ module.exports={
     const period=(await safe(db,`SELECT COUNT(*) n,COALESCE(SUM(v.total),0) s FROM ventas v WHERE DATE(v.created_at) BETWEEN ? AND ? AND v.estado_venta='registrada'${bs}`,[from,to,...bp],[{n:0,s:0}]))[0]||{n:0,s:0};
     const prev=(await safe(db,`SELECT COUNT(*) n,COALESCE(SUM(v.total),0) s FROM ventas v WHERE DATE(v.created_at) BETWEEN ? AND ? AND v.estado_venta='registrada'${bs}`,[previousFrom,previousTo,...bp],[{n:0,s:0}]))[0]||{n:0,s:0};
     const day=(await safe(db,`SELECT COUNT(*) n,COALESCE(SUM(v.total),0) s FROM ventas v WHERE DATE(v.created_at)=? AND v.estado_venta='registrada'${bs}`,[today,...bp],[{n:0,s:0}]))[0]||{n:0,s:0};
-    const productWhere=branch?' AND p.sucursal_id=?':'';
+    const productWhere=branch?' AND (p.sucursal_id=? OR p.sucursal_id IS NULL)':'';
     const product=(await safe(db,`SELECT COUNT(*) n,SUM(p.stock_actual<=p.stock_minimo) low FROM productos p WHERE p.estado=0${productWhere}`,branch?[branch]:[],[{n:0,low:0}]))[0]||{n:0,low:0};
     const clients=(await safe(db,`SELECT COUNT(*) n FROM clientes c WHERE c.activo=1 AND c.es_general=0${branch?' AND c.sucursal_registro_id=?':''}`,branch?[branch]:[],[{n:0}]))[0]||{n:0};
     const pending=(await safe(db,`SELECT COUNT(*) n FROM pedidos_web pw WHERE pw.estado_pago IN ('pendiente','observado','en_verificacion') AND pw.estado_pedido<>'cancelado'${branch?' AND (pw.sucursal_id=? OR pw.es_multisucursal=1)':''}`,branch?[branch]:[],[{n:0}]))[0]||{n:0};

@@ -302,6 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const main    = document.getElementById('main');
 
   document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+    if (window.innerWidth <= 768) return;
     sidebar.classList.toggle('collapsed');
     topbar.classList.toggle('expanded');
     main.classList.toggle('expanded');

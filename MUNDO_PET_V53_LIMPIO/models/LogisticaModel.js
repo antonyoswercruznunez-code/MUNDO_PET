@@ -24,7 +24,7 @@ const LogisticaModel = {
         SUM(r.estado='cargada') cargadas,
         SUM(r.estado='en_ruta') en_ruta,
         SUM(r.estado='completada') completadas,
-        COALESCE(SUM(r.km_final-r.km_inicial),0) km_recorridos
+        COALESCE(SUM(GREATEST(r.km_final-r.km_inicial,0)),0) km_recorridos
       FROM rutas_reparto r WHERE 1=1${scope.sql}${dateSql}
     `, params);
 
@@ -518,7 +518,7 @@ const LogisticaModel = {
     if (hasta) { scope+=' AND r.fecha<=?'; params.push(hasta); }
     const [rows] = await db.query(`SELECT r.codigo,r.fecha,s.nombre sucursal,rp.nombres repartidor,v.placa,r.estado,
       COUNT(d.id) paradas,SUM(d.estado='entregado') entregados,SUM(d.estado='no_entregado') no_entregados,
-      COALESCE(SUM(d.monto_cobrado),0) cobrado,COALESCE(r.km_final-r.km_inicial,0) kilometros
+      COALESCE(SUM(d.monto_cobrado),0) cobrado,COALESCE(GREATEST(r.km_final-r.km_inicial,0),0) kilometros
       FROM rutas_reparto r LEFT JOIN sucursales s ON s.id=r.sucursal_id LEFT JOIN repartidores rp ON rp.id=r.repartidor_id LEFT JOIN vehiculos v ON v.id=r.vehiculo_id LEFT JOIN ruta_reparto_pedidos d ON d.ruta_id=r.id
       WHERE 1=1${scope} GROUP BY r.id ORDER BY r.fecha DESC,r.id DESC`,params);
     return rows;

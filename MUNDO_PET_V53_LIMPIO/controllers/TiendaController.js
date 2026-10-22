@@ -118,7 +118,7 @@ const TiendaController = {
     const [[logo]] = await db.query("SELECT ruta FROM tienda_imagenes WHERE tipo='logo' AND estado=1 LIMIT 1");
     const [sliders] = await db.query("SELECT id,ruta,nombre FROM tienda_imagenes WHERE tipo='slider' AND estado=1 ORDER BY orden ASC,id ASC");
     const [sucursales] = await db.query('SELECT id,nombre,direccion,telefono FROM sucursales WHERE estado=0 ORDER BY nombre');
-    const delivery_tarifas = await DeliveryPricing.listTariffs(db,{activeOnly:true});
+    const delivery = await DeliveryPricing.publicConfig(db);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const metodos_pago = [];
     if (cfg.yape_activo !== 'false') metodos_pago.push({
@@ -149,14 +149,14 @@ const TiendaController = {
       logo: logo?.ruta || null,
       whatsapp: cfg.ecommerce_whatsapp || '', facebook: cfg.tienda_facebook || '', instagram: cfg.tienda_instagram || '',
       direccion: cfg.tienda_direccion || cfg.empresa_direccion || '', horario: cfg.tienda_horario || '',
-      delivery_activo: cfg.delivery_activo === 'true', recojo_activo: cfg.recojo_activo === 'true',
-      delivery_costo: Number(cfg.delivery_costo || 0), delivery_cargo_unidad: Number(cfg.delivery_cargo_unidad || 0), delivery_gratis_desde: Number(cfg.delivery_gratis_desde || 0),
+      delivery_activo: cfg.delivery_activo === 'true' && delivery.disponible, recojo_activo: cfg.recojo_activo === 'true',
+      delivery_gratis_desde: Number(cfg.delivery_gratis_desde || 0),
       metodos_pago,
       yape_numero: cfg.yape_numero || '', yape_qr_ruta: cfg.yape_qr_ruta || '',
       plin_numero: cfg.plin_numero || '', plin_qr_ruta: cfg.plin_qr_ruta || '',
       transferencia_banco: cfg.transferencia_banco || '', transferencia_cuenta: cfg.transferencia_cuenta || '',
       transferencia_cci: cfg.transferencia_cci || '', transferencia_titular: cfg.transferencia_titular || '',
-      sliders, sucursales, delivery_tarifas, google_client_id: process.env.GOOGLE_CLIENT_ID || ''
+      sliders, sucursales, delivery, google_client_id: process.env.GOOGLE_CLIENT_ID || ''
     });
   }),
 
@@ -166,9 +166,8 @@ const TiendaController = {
     const branchIds=Array.isArray(body.sucursal_ids)?body.sucursal_ids:[];
     const quote=await DeliveryPricing.quote(db,{
       subtotal:Number(body.subtotal)||0,
-      units:Number(body.unidades)||0,
       branchIds,
-      location:{departamento:body.departamento,provincia:body.provincia,distrito:body.distrito}
+      location:{lat:body.lat,lng:body.lng}
     });
     res.json({ok:true,quote});
   }),
@@ -320,7 +319,7 @@ const TiendaController = {
     if (!WEB_PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ ok:false,msg:'Método de pago web inválido' });
     const [paymentRows] = await db.query(
       `SELECT clave,valor FROM configuracion
-       WHERE clave IN ('yape_activo','plin_activo','transferencia_activo','izipay_activo','delivery_costo','delivery_gratis_desde','delivery_cargo_unidad')`
+       WHERE clave IN ('yape_activo','plin_activo','transferencia_activo','izipay_activo')`
     );
     const paymentCfg = Object.fromEntries(paymentRows.map(r => [r.clave, String(r.valor)]));
     const enabled = {
@@ -381,8 +380,12 @@ const TiendaController = {
       const branches = [...new Set(valid.map(x=>Number(x.sucursal_id)))];
       const totalUnits = valid.reduce((sum,item)=>sum+Number(item.cantidad||0),0);
       const deliveryQuote = body.tipo_entrega === 'delivery'
-        ? await DeliveryPricing.quote(conn,{subtotal,units:totalUnits,branchIds:branches,location:dir})
+        ? await DeliveryPricing.quote(conn,{subtotal,branchIds:branches,location:dir})
         : { total:0, tariff_id:null, tariff_name:'Recojo en tienda', base:0, per_unit:0, units:totalUnits, extra_units:0, free_from:0, free:true };
+      // Sin ubicación marcada o fuera de las zonas no se puede cobrar el envío.
+      if (body.tipo_entrega === 'delivery' && deliveryQuote.covered === false) {
+        throw new Error(deliveryQuote.description || 'No hay cobertura de delivery para esa ubicación');
+      }
       const costoDelivery = Number(deliveryQuote.total || 0);
       const totalPedido = Number((subtotal + costoDelivery).toFixed(2));
       const pickupSlots=[];

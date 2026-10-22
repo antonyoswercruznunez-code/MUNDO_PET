@@ -72,10 +72,10 @@ const ConfigController = {
     const allowed=new Set([
       'yape_activo','yape_numero','yape_titular','plin_activo','plin_numero','plin_titular',
       'transferencia_activo','transferencia_banco','transferencia_titular','transferencia_cuenta','transferencia_cci',
-      'izipay_activo','izipay_instrucciones','delivery_costo','delivery_gratis_desde','delivery_cargo_unidad'
+      'izipay_activo','izipay_instrucciones','delivery_gratis_desde'
     ]);
     const data=req.body&&typeof req.body==='object'?req.body:{};
-    for(const key of ['delivery_costo','delivery_gratis_desde','delivery_cargo_unidad']){
+    for(const key of ['delivery_gratis_desde']){
       if(key in data && (!Number.isFinite(Number(data[key])) || Number(data[key]) < 0 || Number(data[key]) > 100000)){
         return res.status(400).json({ok:false,msg:'El costo de delivery debe ser un monto válido y no negativo'});
       }
@@ -97,46 +97,95 @@ const ConfigController = {
     }catch(error){await conn.rollback();throw error;}finally{conn.release();}
   }),
 
-  deliveryTarifas: wrap(async (req, res) => {
+  // ── Delivery por zonas de distancia ──
+  deliveryZonas: wrap(async (req, res) => {
     const db = getDB();
-    res.json({ ok: true, data: await DeliveryPricing.listTariffs(db) });
+    const [settings, zonas, [sucursales]] = await Promise.all([
+      DeliveryPricing.getSettings(db),
+      DeliveryPricing.listZones(db),
+      db.query('SELECT id,nombre,direccion,lat,lng FROM sucursales WHERE estado=0 ORDER BY id')
+    ]);
+    res.json({
+      ok: true, zonas, origen: settings.origin, gratis_desde: settings.freeFrom,
+      sucursales: sucursales.map(s => ({
+        id: Number(s.id), nombre: s.nombre, direccion: s.direccion || '',
+        lat: s.lat === null ? null : Number(s.lat), lng: s.lng === null ? null : Number(s.lng)
+      }))
+    });
   }),
 
-  saveDeliveryTarifa: wrap(async (req, res) => {
+  saveDeliveryZona: wrap(async (req, res) => {
     const db = getDB();
     const id = Number(req.params.id || 0);
-    const body = req.body || {};
-    const nombre = String(body.nombre || '').trim().slice(0, 120);
-    const tarifa = [body.tarifa_base, body.cargo_por_unidad, body.gratis_desde].map(Number);
-    if (!nombre) return res.status(400).json({ ok:false, msg:'Ingresa el nombre de la tarifa' });
-    if (tarifa.some(n => !Number.isFinite(n) || n < 0 || n > 100000)) return res.status(400).json({ ok:false, msg:'Los montos de delivery deben ser válidos y no negativos' });
-    const values = [
-      nombre, Number(body.sucursal_id) || null,
-      String(body.departamento || '').trim().slice(0,100),
-      String(body.provincia || '').trim().slice(0,100),
-      String(body.distrito || '').trim().slice(0,100),
-      tarifa[0], tarifa[1], tarifa[2], Number(body.activo) === 0 ? 0 : 1
-    ];
+    const nombre = String(req.body?.nombre || '').trim().slice(0, 80);
+    const km = Number(req.body?.km_hasta);
+    const costo = Number(req.body?.costo);
+    const activo = Number(req.body?.activo) === 0 ? 0 : 1;
+    if (!nombre) return res.status(400).json({ ok:false, msg:'Ponle un nombre a la zona' });
+    if (!Number.isFinite(km) || km <= 0 || km > 500) return res.status(400).json({ ok:false, msg:'La distancia debe estar entre 0.1 y 500 km' });
+    if (!Number.isFinite(costo) || costo < 0 || costo > 100000) return res.status(400).json({ ok:false, msg:'El costo debe ser un monto válido' });
+    const [[repetida]] = await db.query('SELECT id FROM delivery_zonas WHERE km_hasta=? AND id<>? LIMIT 1', [km, id]);
+    if (repetida) return res.status(409).json({ ok:false, msg:`Ya existe una zona que llega hasta ${km} km` });
     if (id) {
-      const [r] = await db.query(`UPDATE delivery_tarifas SET nombre=?,sucursal_id=?,departamento=?,provincia=?,distrito=?,tarifa_base=?,cargo_por_unidad=?,gratis_desde=?,activo=?,updated_at=NOW() WHERE id=?`, [...values,id]);
-      if (!r.affectedRows) return res.status(404).json({ok:false,msg:'Tarifa no encontrada'});
-      await Audit.log(req,{accion:'delivery_tarifa_editada',modulo:'tienda',entidad:'delivery_tarifas',entidad_id:id});
-      return res.json({ok:true,msg:'Tarifa actualizada'});
+      const [r] = await db.query('UPDATE delivery_zonas SET nombre=?,km_hasta=?,costo=?,activo=? WHERE id=?', [nombre, km, costo, activo, id]);
+      if (!r.affectedRows) return res.status(404).json({ ok:false, msg:'Zona no encontrada' });
+      await Audit.log(req,{accion:'delivery_zona_editada',modulo:'tienda',entidad:'delivery_zonas',entidad_id:id});
+      return res.json({ ok:true, id, msg:'Zona actualizada' });
     }
-    const [r] = await db.query(`INSERT INTO delivery_tarifas(nombre,sucursal_id,departamento,provincia,distrito,tarifa_base,cargo_por_unidad,gratis_desde,activo) VALUES(?,?,?,?,?,?,?,?,?)`, values);
-    await Audit.log(req,{accion:'delivery_tarifa_creada',modulo:'tienda',entidad:'delivery_tarifas',entidad_id:r.insertId});
-    res.status(201).json({ok:true,id:r.insertId,msg:'Tarifa creada'});
+    const [r] = await db.query('INSERT INTO delivery_zonas (nombre,km_hasta,costo,activo) VALUES (?,?,?,?)', [nombre, km, costo, activo]);
+    await Audit.log(req,{accion:'delivery_zona_creada',modulo:'tienda',entidad:'delivery_zonas',entidad_id:r.insertId});
+    res.status(201).json({ ok:true, id:r.insertId, msg:'Zona creada' });
   }),
 
-  deleteDeliveryTarifa: wrap(async (req,res) => {
-    const db=getDB(); const id=Number(req.params.id);
-    const [[count]]=await db.query('SELECT COUNT(*) n FROM delivery_tarifas WHERE activo=1');
-    const [[row]]=await db.query('SELECT * FROM delivery_tarifas WHERE id=?',[id]);
-    if(!row)return res.status(404).json({ok:false,msg:'Tarifa no encontrada'});
-    if(Number(count.n)<=1 && Number(row.activo)===1)return res.status(409).json({ok:false,msg:'Debe existir al menos una tarifa activa'});
-    await db.query('DELETE FROM delivery_tarifas WHERE id=?',[id]);
-    await Audit.log(req,{accion:'delivery_tarifa_eliminada',modulo:'tienda',entidad:'delivery_tarifas',entidad_id:id});
-    res.json({ok:true,msg:'Tarifa eliminada'});
+  deleteDeliveryZona: wrap(async (req, res) => {
+    const db = getDB();
+    const id = Number(req.params.id);
+    const [r] = await db.query('DELETE FROM delivery_zonas WHERE id=?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ ok:false, msg:'Zona no encontrada' });
+    await Audit.log(req,{accion:'delivery_zona_eliminada',modulo:'tienda',entidad:'delivery_zonas',entidad_id:id});
+    res.json({ ok:true, msg:'Zona eliminada' });
+  }),
+
+  // Punto de despacho general (sucursal_id vacío) o de una sucursal, y el
+  // importe desde el que el envío es gratis.
+  saveDeliveryAjustes: wrap(async (req, res) => {
+    const db = getDB();
+    const body = req.body || {};
+    const upsert = (clave, valor) => db.query(
+      "INSERT INTO configuracion (clave,valor,grupo) VALUES (?,?,'ecommerce') ON DUPLICATE KEY UPDATE valor=VALUES(valor)", [clave, String(valor)]
+    );
+    if (body.gratis_desde !== undefined) {
+      const gratis = Number(body.gratis_desde);
+      if (!Number.isFinite(gratis) || gratis < 0 || gratis > 100000) return res.status(400).json({ ok:false, msg:'El importe de envío gratis no es válido' });
+      await upsert('delivery_gratis_desde', gratis.toFixed(2));
+    }
+    if (body.lat !== undefined || body.lng !== undefined) {
+      const quitar = body.lat === null && body.lng === null;
+      if (!quitar && !DeliveryPricing.validPoint(body.lat, body.lng)) return res.status(400).json({ ok:false, msg:'La ubicación marcada no es válida' });
+      const sucursalId = Number(body.sucursal_id || 0);
+      if (sucursalId) {
+        const [r] = await db.query('UPDATE sucursales SET lat=?,lng=? WHERE id=?', quitar ? [null, null, sucursalId] : [Number(body.lat), Number(body.lng), sucursalId]);
+        if (!r.affectedRows) return res.status(404).json({ ok:false, msg:'Sucursal no encontrada' });
+      } else {
+        if (quitar) return res.status(400).json({ ok:false, msg:'El punto de despacho general no se puede quitar' });
+        await upsert('delivery_origen_lat', Number(body.lat).toFixed(7));
+        await upsert('delivery_origen_lng', Number(body.lng).toFixed(7));
+        if (body.nombre !== undefined) await upsert('delivery_origen_nombre', String(body.nombre || '').trim().slice(0, 120));
+      }
+    }
+    await Audit.log(req,{accion:'delivery_ajustes',modulo:'tienda',entidad:'configuracion'});
+    res.json({ ok:true, msg:'Delivery actualizado' });
+  }),
+
+  // Simulador del panel: mismo cálculo que usa la tienda.
+  cotizarDeliveryZona: wrap(async (req, res) => {
+    const db = getDB();
+    const quote = await DeliveryPricing.quote(db, {
+      subtotal: Number(req.body?.subtotal) || 0,
+      location: { lat: req.body?.lat, lng: req.body?.lng },
+      branchIds: Array.isArray(req.body?.sucursal_ids) ? req.body.sucursal_ids : []
+    });
+    res.json({ ok:true, quote });
   }),
 
   getLogoActivo: wrap(async (req, res) => {

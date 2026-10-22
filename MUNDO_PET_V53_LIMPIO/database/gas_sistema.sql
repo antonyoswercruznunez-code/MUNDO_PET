@@ -972,6 +972,9 @@ CREATE TABLE `usuarios` (
   `login_fail_count` int(11) NOT NULL DEFAULT 0,
   `locked_until` datetime DEFAULT NULL,
   `session_version` int(11) NOT NULL DEFAULT 1,
+  `clave_secreta_2fa` varchar(255) DEFAULT NULL,
+  `doble_factor_activo` tinyint(4) NOT NULL DEFAULT 0,
+  `doble_factor_paso` bigint(20) DEFAULT NULL,
   `last_login_at` datetime DEFAULT NULL,
   `password_changed_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

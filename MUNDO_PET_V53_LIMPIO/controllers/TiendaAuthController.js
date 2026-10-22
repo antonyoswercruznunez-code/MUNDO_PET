@@ -45,7 +45,9 @@ async function regenerate(req) {
     locked: req.session?.locked || false,
     locked_at: req.session?.locked_at || null,
     user_checked_at: req.session?.user_checked_at || null,
-    csrfToken: req.session?.csrfToken || null
+    csrfToken: req.session?.csrfToken || null,
+    mfa_ok: req.session?.mfa_ok === true,
+    mfa_fails: req.session?.mfa_fails || 0
   };
   await new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve()));
   if (employee.usuario) {

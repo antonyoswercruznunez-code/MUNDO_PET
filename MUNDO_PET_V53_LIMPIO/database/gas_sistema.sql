@@ -1938,5 +1938,24 @@ INSERT INTO `cajas_fisicas`
 (6,2,'Caja 01',0,1,1,'08:00:00','22:00:00',0,1,0),(7,2,'Caja 02',0,0,1,'08:00:00','22:00:00',0,2,0),(8,2,'Caja 03',0,0,1,'08:00:00','22:00:00',0,3,0),(9,2,'Caja 04',0,0,1,'08:00:00','22:00:00',0,4,0),(10,2,'Caja 05',0,0,1,'08:00:00','22:00:00',0,5,0),
 (11,3,'Caja 01',0,1,1,'08:00:00','22:00:00',0,1,0),(12,3,'Caja 02',0,0,1,'08:00:00','22:00:00',0,2,0),(13,3,'Caja 03',0,0,1,'08:00:00','22:00:00',0,3,0),(14,3,'Caja 04',0,0,1,'08:00:00','22:00:00',0,4,0),(15,3,'Caja 05',0,0,1,'08:00:00','22:00:00',0,5,0);
 
+-- Ubicación de cada sucursal en el mapa (punto de despacho)
+ALTER TABLE `sucursales`
+  ADD COLUMN `lat` decimal(10,7) DEFAULT NULL,
+  ADD COLUMN `lng` decimal(10,7) DEFAULT NULL;
+
+-- Mapa en vivo: puntos que comparte quien reparte
+CREATE TABLE IF NOT EXISTS usuario_ubicaciones (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  sucursal_id INT NULL,
+  lat DECIMAL(10,7) NOT NULL,
+  lng DECIMAL(10,7) NOT NULL,
+  precision_m INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ubicacion_usuario_fecha (usuario_id,created_at),
+  KEY idx_ubicacion_fecha (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;

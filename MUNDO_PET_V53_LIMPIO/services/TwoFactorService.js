@@ -8,7 +8,9 @@
  * La clave se guarda cifrada (CryptoService) y nunca sale en una respuesta.
  */
 const crypto = require('crypto');
-const QRCode = require('qrcode');
+// La librería qrcode es opcional: si no se pudo instalar, el QR se dibuja en el navegador.
+let QRCode = null;
+try { QRCode = require('qrcode'); } catch (_) { QRCode = null; }
 const { getDB } = require('../config/database');
 const { encrypt, decrypt } = require('./CryptoService');
 
@@ -81,9 +83,11 @@ async function screen(userId) {
   }
   const label = `${ISSUER}:${user.username}`;
   const uri = `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(ISSUER)}&algorithm=SHA1&digits=${DIGITS}&period=${PERIOD}`;
-  const qr = await QRCode.toDataURL(uri, { errorCorrectionLevel: 'M', margin: 1, width: 240, color: { dark: '#0f172a', light: '#ffffff' } });
+  const qr = QRCode
+    ? await QRCode.toDataURL(uri, { errorCorrectionLevel: 'M', margin: 1, width: 240, color: { dark: '#0f172a', light: '#ffffff' } }).catch(() => null)
+    : null;
   // La clave en texto sirve para escribirla a mano si la cámara no lee el QR.
-  return { configurando: true, qr, clave: secret.replace(/(.{4})/g, '$1 ').trim() };
+  return { configurando: true, qr, uri, clave: secret.replace(/(.{4})/g, '$1 ').trim() };
 }
 
 // Valida un código. Cada código sirve una sola vez (no se puede reutilizar).

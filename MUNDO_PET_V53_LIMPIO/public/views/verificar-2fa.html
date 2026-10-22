@@ -137,11 +137,31 @@
            <div class="step"><span class="n">2</span><div>En la app, toca <b>+</b> y escanea este código QR.</div></div>
            <div class="step"><span class="n">3</span><div>Escribe el código de 6 dígitos que aparece en la app.</div></div>
          </div>
-         <div class="qr"><img src="${data.qr}" alt="Código QR para el Authenticator" width="212" height="212"></div>
-         <details class="manual"><summary>¿No puedes escanear? Escribe la clave</summary><p class="manual-help">En la app: <b>Agregar cuenta</b> → <b>Otra cuenta</b> → <b>Escribir código manualmente</b>. Nombre de la cuenta: <b>MUNDO PET</b>. Clave secreta:</p><code>${esc(data.clave)}</code></details>
+         <div class="qr" id="qr-box">${data.qr ? `<img src="${data.qr}" alt="Código QR para el Authenticator" width="212" height="212">` : ''}</div>
+         <details class="manual" id="qr-manual"><summary>¿No puedes escanear? Escribe la clave</summary><p class="manual-help">En la app: <b>Agregar cuenta</b> → <b>Otra cuenta</b> → <b>Escribir código manualmente</b>. Nombre de la cuenta: <b>MUNDO PET</b>. Clave secreta:</p><code>${esc(data.clave)}</code></details>
          ${codeInputs()}`
       : `<p class="lead">Abre tu app <b>Authenticator</b> y escribe el código de 6 dígitos de <b>MUNDO PET</b>.</p>${codeInputs()}`;
     wire();
+    if (data.configurando && !data.qr) drawQr(data.uri);
+  }
+
+  // Si el servidor no pudo generar el QR, se dibuja aquí; si tampoco se puede,
+  // queda abierta la clave para escribirla a mano en la app.
+  function drawQr(uri) {
+    const box = document.getElementById('qr-box');
+    const manual = () => { box.remove(); document.getElementById('qr-manual').open = true; };
+    if (!uri) return manual();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+    s.onload = () => {
+      try {
+        const q = window.qrcode(0, 'M'); q.addData(uri); q.make();
+        box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+        box.querySelector('svg').style.cssText = 'display:block;width:100%;height:auto';
+      } catch (_) { manual(); }
+    };
+    s.onerror = manual;
+    document.head.appendChild(s);
   }
 
   const out = document.createElement('button');
